@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	ptypes "github.com/traefik/paerser/types"
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
 	"github.com/traefik/traefik/v2/pkg/config/static"
@@ -51,6 +52,7 @@ func Start(config Config) {
 	watcher.AddListener(func(conf dynamic.Configuration) {
 		// logrus.Printf("got new conf..\n")
 		// fmt.Printf("%s\n", dumpJson(conf))
+		logrus.Infoln("refreshing configuration")
 		replaceIPs(&conf, config.BindIP)
 		err := store.Store(conf)
 		if err != nil {

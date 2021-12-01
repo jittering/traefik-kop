@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
 	"gopkg.in/redis.v5"
 )
@@ -67,9 +68,8 @@ func (s *Store) Store(conf dynamic.Configuration) error {
 	s.removeOldKeys(conf.UDP.Services, "udp_services")
 
 	kv := ConfigToKV(conf)
-	fmt.Println("kv:")
 	for k, v := range kv {
-		fmt.Printf("  %s = %s\n", k, v)
+		logrus.Debugf("writing %s = %s", k, v)
 		s.client.Set(k, v, 0)
 	}
 
@@ -109,6 +109,9 @@ func (s Store) k(sk, b string) string {
 func (s *Store) removeKeys(setkey string, keys []string) error {
 	if len(keys) == 0 {
 		return nil
+	}
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		logrus.Debugf("removing keys from %s: %s", setkey, strings.Join(keys, ","))
 	}
 	for _, removeKey := range keys {
 		// fmt.Println("need to remove:", removeKey, s.k(setkey, removeKey))
