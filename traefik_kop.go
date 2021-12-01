@@ -31,12 +31,9 @@ func Start() {
 	providerAggregator := aggregator.NewProviderAggregator(*providers)
 
 	err := providerAggregator.Init()
-	// err := dp.Init()
 	if err != nil {
 		panic(err)
 	}
-
-	// see if we can manually connect to docker
 
 	ctx := context.Background()
 	routinesPool := safe.NewPool(ctx)
@@ -53,7 +50,6 @@ func Start() {
 		logrus.Printf("got new conf..\n")
 		fmt.Printf("%s\n", dumpJson(conf))
 		fmt.Println("kv:")
-		// kv := configToKV(conf)
 		kv := ConfigToKV(conf)
 		for k, v := range kv {
 			fmt.Printf("  %s = %s\n", k, v)
@@ -63,22 +59,5 @@ func Start() {
 
 	watcher.Start()
 
-	// configurationChan := make(chan dynamic.Message)
-	// pool := safe.NewPool(context.Background())
-	// go func() {
-	// 	err := providerAggregator.Provide(configurationChan, pool)
-	// 	if err != nil {
-	// 		log.Errorf("Cannot start the provider %T: %v", dp, err)
-	// 	} else {
-	// 		log.Infof("finished providing from docker..\n")
-	// 	}
-	// }()
-
-	// for msg := range configurationChan {
-	// 	// fmt.Printf("got msg: %#v\n", msg)
-	// 	fmt.Printf("%s\n", dumpJson(msg))
-	// }
-
 	select {} // go forever
-
 }
