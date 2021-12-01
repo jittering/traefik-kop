@@ -1,8 +1,6 @@
 package traefikkop
 
 import (
-	"fmt"
-	"os"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -17,15 +15,11 @@ func Test_configToKV(t *testing.T) {
 
 	got := ConfigToKV(*cfg)
 	require.NotNil(t, got)
-	for k, v := range got {
-		fmt.Printf("  %s = %s\n", k, v)
-	}
+	// for k, v := range got {
+	// 	fmt.Printf("  %s = %s\n", k, v)
+	// }
 
-	hostname, _ := os.Hostname()
-
-	require.Contains(t, got, "traefik/http/services/Service0@"+hostname+"/loadBalancer/healthCheck/port")
+	require.Contains(t, got, "traefik/http/services/Service0/loadBalancer/healthCheck/port")
 	require.Contains(t, got, "traefik/http/middlewares/Middleware15/forwardAuth/authRequestHeaders/1")
 	require.NotContains(t, got, "traefik/tls/options/TLS0/sniStrict")
-
-	t.FailNow()
 }

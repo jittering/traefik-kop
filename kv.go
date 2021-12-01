@@ -43,6 +43,8 @@ func (kv *KV) add(val interface{}, format string, a ...interface{}) {
 	kv.data[key] = val
 }
 
+// ConfigToKV flattens the given configuration into a format suitable for
+// putting into a KV store such as redis
 func ConfigToKV(conf dynamic.Configuration) map[string]interface{} {
 	b, err := json.Marshal(conf)
 	if err != nil {
