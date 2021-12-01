@@ -1,0 +1,11 @@
+version: "3"
+
+services:
+  nginx:
+    image: "ghcr.io/jittering/traefik-kop:latest"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - "REDIS_ADDR=192.168.1.50:6379"
+      - "BIND_IP=192.168.1.75"

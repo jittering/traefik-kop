@@ -20,7 +20,7 @@ func flags() {
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "hostname",
-				Usage:   "Hostname to identify this node as in redis",
+				Usage:   "Hostname to identify this node in redis",
 				Value:   getHostname(),
 				EnvVars: []string{"KOP_HOSTNAME"},
 			},
