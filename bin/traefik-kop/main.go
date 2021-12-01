@@ -7,26 +7,98 @@ import (
 	traefikkop "github.com/jittering/traefik-kop"
 	"github.com/sirupsen/logrus"
 	"github.com/traefik/traefik/v2/pkg/log"
+	"github.com/urfave/cli/v2"
 )
 
-func main() {
+func flags() {
+	app := &cli.App{
+		Name:  "traefik-kop",
+		Usage: "A dynamic docker->redis->traefik discovery agent",
 
-	logrus.SetLevel(logrus.TraceLevel)
-	log.SetLevel(logrus.DebugLevel)
-	log.WithoutContext().WriterLevel(logrus.DebugLevel)
+		Action: doStart,
+
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "hostname",
+				Usage:   "Hostname to identify this node as in redis",
+				Value:   getHostname(),
+				EnvVars: []string{"KOP_HOSTNAME"},
+			},
+			&cli.StringFlag{
+				Name:    "bind-ip",
+				Usage:   "IP address to bind services to",
+				Value:   getDefaultIP(),
+				EnvVars: []string{"BIND_IP"},
+			},
+			&cli.StringFlag{
+				Name:    "redis-addr",
+				Usage:   "Redis address",
+				Value:   "127.0.0.1:6379",
+				EnvVars: []string{"REDIS_ADDR"},
+			},
+			&cli.StringFlag{
+				Name:    "redis-pass",
+				Usage:   "Redis password (if needed)",
+				EnvVars: []string{"REDIS_PASS"},
+			},
+			&cli.IntFlag{
+				Name:    "redis-db",
+				Usage:   "Redis DB number",
+				Value:   0,
+				EnvVars: []string{"REDIS_DB"},
+			},
+			&cli.BoolFlag{
+				Name:    "verbose",
+				Usage:   "Enable debug logging",
+				Value:   false,
+				EnvVars: []string{"VERBOSE", "DEBUG"},
+			},
+		},
+	}
+
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func setupLogging(debug bool) {
+	if debug {
+		logrus.SetLevel(logrus.DebugLevel)
+		log.SetLevel(logrus.DebugLevel)
+		log.WithoutContext().WriterLevel(logrus.DebugLevel)
+	}
 
 	formatter := &logrus.TextFormatter{DisableColors: true, FullTimestamp: true, DisableSorting: true}
 	logrus.SetFormatter(formatter)
 	log.SetFormatter(formatter)
+}
 
-	hostname, _ := os.Hostname()
+func main() {
+	flags()
+}
+
+func doStart(c *cli.Context) error {
 	config := traefikkop.Config{
-		Hostname: hostname,
-		BindIP:   getDefaultIP(),
-		Addr:     "127.0.0.1:6379",
+		Hostname: c.String("hostname"),
+		BindIP:   c.String("bind-ip"),
+		Addr:     c.String("redis-addr"),
+		Pass:     c.String("redis-pass"),
+		DB:       c.Int("redis-db"),
 	}
 
+	setupLogging(c.Bool("verbose"))
+
 	traefikkop.Start(config)
+	return nil
+}
+
+func getHostname() string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return ""
+	}
+	return hostname
 }
 
 func getDefaultIP() string {
