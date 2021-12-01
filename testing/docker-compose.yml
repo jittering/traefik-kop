@@ -1,0 +1,11 @@
+version: "3"
+
+services:
+  nginx:
+    image: "nginx:alpine"
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx.rule=Host(`nginx.local`)"
+      - "traefik.http.services.nginx.loadbalancer.server.scheme=http"
+      - "traefik.http.services.nginx.loadbalancer.server.port=80"
