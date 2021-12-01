@@ -4,8 +4,12 @@ services:
   nginx:
     image: "nginx:alpine"
     restart: unless-stopped
+    ports:
+      - 8088:80
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.nginx.rule=Host(`nginx.local`)"
+      - "traefik.http.routers.nginx.tls=true"
+      - "traefik.http.routers.nginx.tls.certresolver=default"
       - "traefik.http.services.nginx.loadbalancer.server.scheme=http"
-      - "traefik.http.services.nginx.loadbalancer.server.port=80"
+      - "traefik.http.services.nginx.loadbalancer.server.port=8088"

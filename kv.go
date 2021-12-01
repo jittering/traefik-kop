@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
@@ -65,6 +66,8 @@ func ConfigToKV(conf dynamic.Configuration) map[string]interface{} {
 	return kv.data
 }
 
+var reKeyName = regexp.MustCompile(`^traefik/(http|tcp|udp)/(router|service|middleware)s$`)
+
 func walk(kv *KV, path string, obj interface{}, pos string) {
 	if obj == nil {
 		return
@@ -82,6 +85,9 @@ func walk(kv *KV, path string, obj interface{}, pos string) {
 				continue
 			}
 			strKey := key.String()
+			if reKeyName.MatchString(path) {
+				strKey = strings.TrimSuffix(strKey, "@docker")
+			}
 			walk(kv, path+"/"+strKey, val.Interface(), strKey)
 		}
 
