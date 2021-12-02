@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
 )
 
@@ -46,24 +48,22 @@ func (kv *KV) add(val interface{}, format string, a ...interface{}) {
 
 // ConfigToKV flattens the given configuration into a format suitable for
 // putting into a KV store such as redis
-func ConfigToKV(conf dynamic.Configuration) map[string]interface{} {
+func ConfigToKV(conf dynamic.Configuration) (map[string]interface{}, error) {
 	b, err := json.Marshal(conf)
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, errors.Wrap(err, "failed to create kv")
 	}
 
 	hash := make(map[string]interface{})
 	err = json.Unmarshal(b, &hash)
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, errors.Wrap(err, "failed to create kv")
 	}
 
 	kv := NewKV()
 	walk(kv, "traefik", hash, "")
 
-	return kv.data
+	return kv.data, nil
 }
 
 var reKeyName = regexp.MustCompile(`^traefik/(http|tcp|udp)/(router|service|middleware)s$`)
@@ -118,7 +118,7 @@ func walk(kv *KV, path string, obj interface{}, pos string) {
 		kv.add(fmt.Sprintf("%v", val.Interface()), path)
 
 	default:
-		fmt.Printf("unhandled kind %s: %#v\n", val.Kind(), obj)
+		logrus.Warnf("unhandled kind %s: %#v\n", val.Kind(), obj)
 	}
 
 }

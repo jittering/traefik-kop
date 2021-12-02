@@ -74,7 +74,6 @@ func Start(config Config) {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println("")
 	})
 
 	watcher.Start()

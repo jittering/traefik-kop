@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
 	"gopkg.in/redis.v5"
@@ -71,7 +72,10 @@ func (s *Store) Store(conf dynamic.Configuration) error {
 	s.removeOldKeys(conf.UDP.Routers, "udp_routers")
 	s.removeOldKeys(conf.UDP.Services, "udp_services")
 
-	kv := ConfigToKV(conf)
+	kv, err := ConfigToKV(conf)
+	if err != nil {
+		return err
+	}
 	for k, v := range kv {
 		logrus.Debugf("writing %s = %s", k, v)
 		s.client.Set(k, v, 0)
@@ -97,8 +101,7 @@ func (s *Store) swapKeys(setkey string) error {
 			s.client.Unlink(setkey)
 			return nil
 		}
-		fmt.Println("err renaming set key", err)
-		return err
+		return errors.Wrap(err, "rename failed")
 	}
 	return nil
 }
@@ -118,14 +121,12 @@ func (s *Store) removeKeys(setkey string, keys []string) error {
 		logrus.Debugf("removing keys from %s: %s", setkey, strings.Join(keys, ","))
 	}
 	for _, removeKey := range keys {
-		// fmt.Println("need to remove:", removeKey, s.k(setkey, removeKey))
 		res, err := s.client.Keys(s.k(setkey, removeKey) + "/*").Result()
 		if err != nil {
-			return err
+			return errors.Wrap(err, "fetch failed")
 		}
-		// fmt.Printf("found keys to remove: %#v\n", res)
 		if err := s.client.Unlink(res...).Err(); err != nil {
-			return err
+			return errors.Wrap(err, "unlink failed")
 		}
 	}
 	return nil
@@ -138,28 +139,27 @@ func (s *Store) removeOldKeys(m interface{}, setname string) error {
 	if len(newkeys) == 0 {
 		res, err := s.client.SMembers(setkey).Result()
 		if err != nil {
-			fmt.Printf("err fetching set: %s\n", err)
+			return errors.Wrap(err, "fetch failed")
 		}
 		return s.removeKeys(setname, res)
 
 	} else {
 		// make a diff and remove
-		// fmt.Printf("new keys: %#v\n", newkeys)
 		err := s.client.SAdd(setkey+"_new", mkslice(newkeys)...).Err()
 		if err != nil {
-			fmt.Println("err adding set", err)
+			return errors.Wrap(err, "add failed")
 		}
 
 		// diff the existing keys with the new ones
 		res, err := s.client.SDiff(setkey, setkey+"_new").Result()
 		if err != nil {
-			return err
+			return errors.Wrap(err, "diff failed")
 		}
-		// fmt.Printf("got keys from redis: %#v\n", res)
 		return s.removeKeys(setname, res)
 	}
 }
 
+// mkslice converts a string slice to an interface slice
 func mkslice(old []string) []interface{} {
 	new := make([]interface{}, len(old))
 	for i, v := range old {
