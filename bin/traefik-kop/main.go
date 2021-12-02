@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"os"
 
@@ -10,10 +11,42 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var (
+	version string
+	commit  string
+	date    string
+	builtBy string
+)
+
+func printVersion(c *cli.Context) error {
+	fmt.Printf("%s version %s (commit: %s, built %s)\n", c.App.Name, c.App.Version, commit, date)
+	return nil
+}
+
 func flags() {
+	if version == "" {
+		version = "n/a"
+	}
+	if commit == "" {
+		commit = "head"
+	}
+	if date == "" {
+		date = "n/a"
+	}
+
+	cli.VersionFlag = &cli.BoolFlag{
+		Name:    "version",
+		Aliases: []string{"V"},
+		Usage:   "Print the version",
+	}
+	cli.VersionPrinter = func(c *cli.Context) {
+		printVersion(c)
+	}
+
 	app := &cli.App{
-		Name:  "traefik-kop",
-		Usage: "A dynamic docker->redis->traefik discovery agent",
+		Name:    "traefik-kop",
+		Usage:   "A dynamic docker->redis->traefik discovery agent",
+		Version: version,
 
 		Action: doStart,
 
