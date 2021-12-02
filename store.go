@@ -51,6 +51,10 @@ func NewStore(hostname string, addr string, pass string, db int) *Store {
 	return store
 }
 
+func (s *Store) Ping() error {
+	return s.client.Ping().Err()
+}
+
 // sk returns the 'set key' for keeping track of our services/routers/middlewares
 // e.g., traefik_http_routers@culture.local
 func (s Store) sk(b string) string {

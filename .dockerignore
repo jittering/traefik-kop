@@ -9,3 +9,4 @@ Makefile
 LICENSE
 README.md
 docs
+dist/

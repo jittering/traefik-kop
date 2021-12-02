@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -16,24 +18,38 @@ import (
 	"github.com/traefik/traefik/v2/pkg/server"
 )
 
+const defaultEndpointPath = "/var/run/docker.sock"
+const defaultThrottleDuration = 5 * time.Second
+
 func Start(config Config) {
-	defaultThrottleDuration := 5 * time.Second
+
+	_, err := os.Stat(defaultEndpointPath)
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	dp := &docker.Provider{
-		Endpoint: "unix:///var/run/docker.sock",
+		Endpoint: "unix://" + defaultEndpointPath,
 		// HTTPClientTimeout: pduration,
 		Watch:                   true,
 		SwarmModeRefreshSeconds: ptypes.Duration(15 * time.Second),
 	}
 
 	store := NewStore(config.Hostname, config.Addr, config.Pass, config.DB)
+	err = store.Ping()
+	if err != nil {
+		if strings.Contains(err.Error(), config.Addr) {
+			logrus.Fatalf("failed to connect to redis: %s", err)
+		}
+		logrus.Fatalf("failed to connect to redis at %s: %s", config.Addr, err)
+	}
 
 	providers := &static.Providers{
 		Docker: dp,
 	}
 	providerAggregator := aggregator.NewProviderAggregator(*providers)
 
-	err := providerAggregator.Init()
+	err = providerAggregator.Init()
 	if err != nil {
 		panic(err)
 	}

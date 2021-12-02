@@ -1,4 +1,3 @@
 .vscode/
-./traefik-kop
-
-dist/
+/traefik-kop
+/dist
