@@ -13,8 +13,8 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  lint_and_build:
-    name: Lint and Build
+  build_docker:
+    name: Build Docker
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -27,8 +27,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
@@ -36,11 +44,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v2
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v2
         with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64,linux/arm/v6,linux/arm/v7
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          version: latest
+          args: release --rm-dist --snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

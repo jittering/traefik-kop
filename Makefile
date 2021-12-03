@@ -19,6 +19,9 @@ run:
 
 serve: run
 
+test:
+	go test ./...
+
 clean:
 	rm -rf dist/
 	rm -f traefik-kop
