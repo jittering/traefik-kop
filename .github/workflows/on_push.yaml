@@ -38,16 +38,29 @@ jobs:
         with:
           go-version: 1.17
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v3
+      - uses: actions/cache@v2
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-      - name: Run GoReleaser
+      - name: Set up GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
           version: latest
-          args: release --rm-dist --snapshot
+          install-only: true
+
+      - name: Run GoReleaser
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          goreleaser release --rm-dist --snapshot
+          # Manually push docker images to :latest tag
+          docker images --format '{{ .Repository }}:{{ .Tag }}' \
+            | grep kop \
+            | grep -v none \
+            | xargs -n 1 docker push
