@@ -3,7 +3,7 @@
 A dynamic docker->redis->traefik discovery agent.
 
 Solves the problem of running a non-Swarm/Kubernetes multi-host cluster with a
-single public-facing traefik instance. For example:
+single public-facing traefik instance.
 
 ```text
                         +---------------------+          +---------------------+
@@ -26,7 +26,7 @@ them to a given `redis` instance. Simply configure your `traefik` node with a
 
 ## Usage
 
-Configure `traefik` to use the redis provider:
+Configure `traefik` to use the redis provider, for example via `traefik.yml`:
 
 ```yaml
 providers:
@@ -57,6 +57,31 @@ services:
       - "REDIS_ADDR=192.168.1.50:6379"
       - "BIND_IP=192.168.1.75"
 ```
+
+Then add labels to your target service:
+
+```yml
+services:
+  nginx:
+    image: "nginx:alpine"
+    restart: unless-stopped
+    ports:
+      - 8088:80
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx.rule=Host(`nginx-on-docker2.example.com`)"
+      - "traefik.http.routers.nginx.tls=true"
+      - "traefik.http.routers.nginx.tls.certresolver=default"
+      - "traefik.http.services.nginx.loadbalancer.server.scheme=http"
+      - "traefik.http.services.nginx.loadbalancer.server.port=8088"
+```
+
+__NOTE:__ unlike the standard traefik-docker usage, we need to expose the
+service port on the host and tell traefik to bind to *that* port (8088 in the
+example above) in the load balancer config, not the internal port. This is so
+that traefik can reach it over the network.
+
+See also [bind-ip](#bind-ip) section below.
 
 ## Configuration
 
