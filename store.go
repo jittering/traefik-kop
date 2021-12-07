@@ -110,6 +110,7 @@ func (s *Store) swapKeys(setkey string) error {
 // e.g., traefik/http/routers/nginx@docker
 func (s Store) k(sk, b string) string {
 	k := strings.ReplaceAll(fmt.Sprintf("traefik_%s", sk), "_", "/")
+	b = strings.TrimSuffix(b, "@docker")
 	return fmt.Sprintf("%s/%s", k, b)
 }
 
@@ -121,7 +122,9 @@ func (s *Store) removeKeys(setkey string, keys []string) error {
 		logrus.Debugf("removing keys from %s: %s", setkey, strings.Join(keys, ","))
 	}
 	for _, removeKey := range keys {
-		res, err := s.client.Keys(s.k(setkey, removeKey) + "/*").Result()
+		keyPath := s.k(setkey, removeKey) + "/*"
+		logrus.Debugf("removing keys matching %s", keyPath)
+		res, err := s.client.Keys(keyPath).Result()
 		if err != nil {
 			return errors.Wrap(err, "fetch failed")
 		}
