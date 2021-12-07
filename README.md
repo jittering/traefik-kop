@@ -48,7 +48,7 @@ Run `traefik-kop` on your other nodes via docker-compose:
 ```yaml
 version: "3"
 services:
-  nginx:
+  traefik-kop:
     image: "ghcr.io/jittering/traefik-kop:latest"
     restart: unless-stopped
     volumes:
