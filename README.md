@@ -58,7 +58,7 @@ services:
       - "BIND_IP=192.168.1.75"
 ```
 
-Then add labels to your target service:
+Then add the usual labels to your target service:
 
 ```yml
 services:
@@ -66,6 +66,9 @@ services:
     image: "nginx:alpine"
     restart: unless-stopped
     ports:
+      # The host port binding will automatically be picked up for use as the
+      # service endpoint. See 'service port binding' in the configuration
+      # section for more.
       - 8088:80
     labels:
       - "traefik.enable=true"
@@ -73,13 +76,10 @@ services:
       - "traefik.http.routers.nginx.tls=true"
       - "traefik.http.routers.nginx.tls.certresolver=default"
       - "traefik.http.services.nginx.loadbalancer.server.scheme=http"
+      # [opptional] explicitly set the port binding for this service.
+      # See 'service port binding' in the configuration section for more.
       - "traefik.http.services.nginx.loadbalancer.server.port=8088"
 ```
-
-__NOTE:__ unlike the standard traefik-docker usage, we need to expose the
-service port on the host and tell traefik to bind to *that* port (8088 in the
-example above) in the load balancer config, not the internal port. This is so
-that traefik can reach it over the network.
 
 See also [bind-ip](#bind-ip) section below.
 
@@ -113,6 +113,42 @@ than the usual method of using the internal docker-network IPs (by default
 When using host networking this can be auto-detected, however it is advisable in
 the majority of cases to manually set this to the desired IP address. This can
 be done using the docker image by exporting the `BIND_IP` environment variable.
+
+### Service port binding
+
+By default, the service port will be picked up from the container port bindings
+if only a single port is bound. For example:
+
+```yml
+services:
+  nginx:
+    image: "nginx:alpine"
+    restart: unless-stopped
+    ports:
+      - 8088:80
+```
+
+`8088` would automatically be used as the service endpoint's port in traefik. If
+you have more than one port or are using *host networking*, you will need to
+explicitly set the port binding via service label, like so:
+
+```yaml
+services:
+  nginx:
+    image: "nginx:alpine"
+    network_mode: host
+    ports:
+      - 8088:80
+      - 8888:81
+    labels:
+      # (note: other labels snipped for brevity)
+      - "traefik.http.services.nginx.loadbalancer.server.port=8088"
+```
+
+__NOTE:__ unlike the standard traefik-docker usage, we need to expose the
+service port on the host and tell traefik to bind to *that* port (8088 in the
+example above) in the load balancer config, not the internal port (80). This is
+so that traefik can reach it over the network.
 
 ### Docker API
 
