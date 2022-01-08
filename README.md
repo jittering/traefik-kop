@@ -114,6 +114,12 @@ When using host networking this can be auto-detected, however it is advisable in
 the majority of cases to manually set this to the desired IP address. This can
 be done using the docker image by exporting the `BIND_IP` environment variable.
 
+### Docker API
+
+traefik-kop expects to connect to the Docker host API via unix socket at
+`/var/run/docker.sock`. Other connection methods (like ssh, http/s) are not
+supported.
+
 ## License
 
 traefik-kop: MIT, (c) 2021, Pixelcop Research, Inc.
