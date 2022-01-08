@@ -12,6 +12,8 @@ replace (
 
 require (
 	github.com/BurntSushi/toml v0.3.1
+	github.com/docker/docker v20.10.11+incompatible
+	github.com/docker/go-connections v0.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.7.0
 	github.com/stretchr/testify v1.7.0
@@ -70,8 +72,6 @@ require (
 	github.com/dnsimple/dnsimple-go v0.70.1 // indirect
 	github.com/docker/cli v20.10.11+incompatible // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/docker/docker v20.10.11+incompatible // indirect
-	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/donovanhide/eventsource v0.0.0-20170630084216-b8f31a59085e // indirect
 	github.com/eapache/channels v1.1.0 // indirect
