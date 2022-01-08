@@ -25,3 +25,6 @@ test:
 clean:
 	rm -rf dist/
 	rm -f traefik-kop
+
+release: clean
+	goreleaser release --rm-dist --skip-validate
