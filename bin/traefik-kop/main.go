@@ -112,6 +112,7 @@ func main() {
 }
 
 func doStart(c *cli.Context) error {
+	traefikkop.Version = version
 	config := traefikkop.Config{
 		Hostname: c.String("hostname"),
 		BindIP:   c.String("bind-ip"),
