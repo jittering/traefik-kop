@@ -62,7 +62,9 @@ func findContainerByServiceName(dc client.APIClient, svcType string, svcName str
 		svcNeedle := fmt.Sprintf("traefik.%s.services.%s", svcType, svcName)
 		routerNeedle := fmt.Sprintf("traefik.%s.routers.%s", svcType, routerName)
 		for k := range container.Config.Labels {
-			if strings.Contains(k, svcNeedle) || (routerName != "" && strings.Contains(k, routerNeedle)) {
+			if strings.Contains(k, svcNeedle) {
+				return container, nil
+			} else if routerName != "" && strings.Contains(k, routerNeedle) {
 				return container, nil
 			}
 		}
