@@ -75,9 +75,9 @@ services:
       - "traefik.http.routers.nginx.rule=Host(`nginx-on-docker2.example.com`)"
       - "traefik.http.routers.nginx.tls=true"
       - "traefik.http.routers.nginx.tls.certresolver=default"
-      - "traefik.http.services.nginx.loadbalancer.server.scheme=http"
       # [opptional] explicitly set the port binding for this service.
       # See 'service port binding' in the configuration section for more.
+      - "traefik.http.services.nginx.loadbalancer.server.scheme=http"
       - "traefik.http.services.nginx.loadbalancer.server.port=8088"
 ```
 
