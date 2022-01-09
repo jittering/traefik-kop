@@ -70,7 +70,7 @@ func findContainerByServiceName(dc client.APIClient, svcType string, svcName str
 		}
 	}
 
-	return types.ContainerJSON{}, errors.New("service not found")
+	return types.ContainerJSON{}, errors.Errorf("service label not found for %s/%s", svcType, svcName)
 }
 
 // Check if the port is explicitly set via label
