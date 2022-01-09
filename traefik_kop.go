@@ -104,7 +104,7 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 				server := &svc.LoadBalancer.Servers[i]
 				if server.URL != "" {
 					u, _ := url.Parse(server.URL)
-					p := getContainerPort(dockerClient, "http", svcName, u.Port())
+					p := getContainerPort(dockerClient, conf, "http", svcName, u.Port())
 					if p != "" {
 						u.Host = ip + ":" + p
 					} else {
@@ -117,7 +117,7 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 						scheme = server.Scheme
 					}
 					server.URL = fmt.Sprintf("%s://%s", scheme, ip)
-					port := getContainerPort(dockerClient, "http", svcName, server.Port)
+					port := getContainerPort(dockerClient, conf, "http", svcName, server.Port)
 					if port != "" {
 						server.URL += ":" + server.Port
 					}
@@ -133,7 +133,7 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 			for i := range svc.LoadBalancer.Servers {
 				server := &svc.LoadBalancer.Servers[i]
 				server.Address = ip
-				server.Port = getContainerPort(dockerClient, "tcp", svcName, server.Port)
+				server.Port = getContainerPort(dockerClient, conf, "tcp", svcName, server.Port)
 			}
 		}
 	}
@@ -145,16 +145,44 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 			for i := range svc.LoadBalancer.Servers {
 				server := &svc.LoadBalancer.Servers[i]
 				server.Address = ip
-				server.Port = getContainerPort(dockerClient, "udp", svcName, server.Port)
+				server.Port = getContainerPort(dockerClient, conf, "udp", svcName, server.Port)
 			}
 		}
 	}
 }
 
+func getRouterOfService(conf *dynamic.Configuration, svcName string, svcType string) string {
+	if svcType == "http" {
+		for routerName, router := range conf.HTTP.Routers {
+			if router.Service == svcName {
+				return routerName
+			}
+		}
+	} else if svcType == "tcp" {
+		for routerName, router := range conf.TCP.Routers {
+			if router.Service == svcName {
+				return routerName
+			}
+		}
+	} else if svcType == "udp" {
+		for routerName, router := range conf.UDP.Routers {
+			if router.Service == svcName {
+				return routerName
+			}
+		}
+	}
+
+	return ""
+}
+
 // Get host-port binding from container, if not explicitly set via labels
-func getContainerPort(dockerClient client.APIClient, svcType string, svcName string, port string) string {
+func getContainerPort(dockerClient client.APIClient, conf *dynamic.Configuration, svcType string, svcName string, port string) string {
 	svcName = strings.TrimSuffix(svcName, "@docker")
-	container, err := findContainerByServiceName(dockerClient, svcType, svcName)
+	routerName := getRouterOfService(conf, svcName, svcType)
+	routerName = strings.TrimSuffix(routerName, "@docker")
+
+	logrus.Debugf("Found router %s for service %s", routerName, svcName)
+	container, err := findContainerByServiceName(dockerClient, svcType, svcName, routerName)
 	if err != nil {
 		logrus.Warn(err)
 		return port

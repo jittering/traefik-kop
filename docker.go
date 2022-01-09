@@ -48,7 +48,7 @@ func getClientOpts(endpoint string) ([]client.Opt, error) {
 	return opts, nil
 }
 
-func findContainerByServiceName(dc client.APIClient, svcType string, svcName string) (types.ContainerJSON, error) {
+func findContainerByServiceName(dc client.APIClient, svcType string, svcName string, routerName string) (types.ContainerJSON, error) {
 	list, err := dc.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err != nil {
 		return types.ContainerJSON{}, errors.Wrap(err, "failed to list containers")
@@ -59,9 +59,12 @@ func findContainerByServiceName(dc client.APIClient, svcType string, svcName str
 			return types.ContainerJSON{}, errors.Wrapf(err, "failed to inspect container %s", c.ID)
 		}
 		// check labels
-		needle := fmt.Sprintf("traefik.%s.services.%s", svcType, svcName)
+		svcNeedle := fmt.Sprintf("traefik.%s.services.%s", svcType, svcName)
+		routerNeedle := fmt.Sprintf("traefik.%s.routers.%s", svcType, routerName)
 		for k := range container.Config.Labels {
-			if strings.Contains(k, needle) {
+			if strings.Contains(k, svcNeedle) {
+				return container, nil
+			} else if routerName != "" && strings.Contains(k, routerNeedle) {
 				return container, nil
 			}
 		}

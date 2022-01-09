@@ -109,3 +109,38 @@ func Test_replacePorts(t *testing.T) {
 	require.False(t, strings.HasSuffix(cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:80"))
 	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:8888"))
 }
+
+func Test_replacePortsNoService(t *testing.T) {
+
+	portMap := nat.PortMap{
+		"80": []nat.PortBinding{
+			{HostIP: "172.20.0.2", HostPort: "8888"},
+		},
+	}
+
+	dc := createTestClient(map[string]string{
+		"traefik.http.routers.nginx.entrypoints": "web-secure",
+	})
+
+	cfg := &dynamic.Configuration{}
+	err := json.Unmarshal([]byte(NGINX_CONF_JSON_DIFFRENT_SERVICE_NAME), cfg)
+	require.NoError(t, err)
+
+	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx-nginx@docker"].LoadBalancer.Servers[0].URL, "172.20.0.2:80"))
+
+	// explicit label present
+	replaceIPs(dc, cfg, "4.4.4.4")
+	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx-nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:80"))
+
+	// without label but no port binding
+	json.Unmarshal([]byte(NGINX_CONF_JSON_DIFFRENT_SERVICE_NAME), cfg)
+	replaceIPs(dc, cfg, "4.4.4.4")
+	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx-nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:80"))
+
+	// with port binding
+	dc.container.HostConfig.PortBindings = portMap
+	json.Unmarshal([]byte(NGINX_CONF_JSON_DIFFRENT_SERVICE_NAME), cfg)
+	replaceIPs(dc, cfg, "4.4.4.4")
+	require.False(t, strings.HasSuffix(cfg.HTTP.Services["nginx-nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:80"))
+	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx-nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:8888"))
+}
