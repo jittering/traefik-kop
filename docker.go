@@ -95,5 +95,5 @@ func getPortBinding(container types.ContainerJSON) (string, error) {
 		}
 		return v[0].HostPort, nil
 	}
-	return "", errors.New("no host-port binding found")
+	return "", errors.Errorf("no host-port binding found for container '%s'", container.Name)
 }
