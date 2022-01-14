@@ -187,6 +187,7 @@ func getContainerPort(dockerClient client.APIClient, conf *dynamic.Configuration
 		logrus.Warnf("failed to find host-port: %s", err)
 		return port
 	}
+	logrus.Debugf("found container '%s' (%s) for service '%s'", container.Name, container.ID, svcName)
 	if isPortSet(container, svcType, svcName) {
 		logrus.Debugf("using explicitly set port %s for %s", port, svcName)
 		return port
