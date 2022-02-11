@@ -95,5 +95,15 @@ func getPortBinding(container types.ContainerJSON) (string, error) {
 		}
 		return v[0].HostPort, nil
 	}
+
+	// check for a randomly set port via --publish-all
+	if len(container.NetworkSettings.Ports) == 1 {
+		for _, v := range container.NetworkSettings.Ports {
+			if v != nil && len(v) == 1 && v[0].HostPort != "" {
+				return v[0].HostPort, nil
+			}
+		}
+	}
+
 	return "", errors.Errorf("no host-port binding found for container '%s'", container.Name)
 }
