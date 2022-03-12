@@ -156,6 +156,15 @@ traefik-kop expects to connect to the Docker host API via unix socket at
 `/var/run/docker.sock`. Other connection methods (like ssh, http/s) are not
 supported.
 
+## Releasing
+
+To release a new version, simply push a new tag to github.
+
+```sh
+git tag -a v0.11.0
+git push --tags
+```
+
 ## License
 
 traefik-kop: MIT, (c) 2021, Pixelcop Research, Inc.
