@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/traefik/traefik/v2/pkg/provider/docker"
 )
 
@@ -99,8 +100,14 @@ func getPortBinding(container types.ContainerJSON) (string, error) {
 	// check for a randomly set port via --publish-all
 	if len(container.NetworkSettings.Ports) == 1 {
 		for _, v := range container.NetworkSettings.Ports {
-			if v != nil && len(v) == 1 && v[0].HostPort != "" {
-				return v[0].HostPort, nil
+			if v != nil && len(v) > 0 {
+				port := v[0].HostPort
+				if port != "" {
+					if len(v) > 1 {
+						logrus.Warnf("found %d port(s); trying the first one", len(v))
+					}
+					return port, nil
+				}
 			}
 		}
 	}
