@@ -85,6 +85,16 @@ func isPortSet(container types.ContainerJSON, svcType string, svcName string) bo
 	return false
 }
 
+// Check if the network name is explicitly set via label
+func isNetworkSet(container types.ContainerJSON) bool {
+	for k := range container.Config.Labels {
+		if k == "traefik.docker.network" {
+			return true
+		}
+	}
+	return false
+}
+
 func getPortBinding(container types.ContainerJSON) (string, error) {
 	numBindings := len(container.HostConfig.PortBindings)
 	if numBindings > 1 {
