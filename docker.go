@@ -98,7 +98,7 @@ func getPortBinding(container types.ContainerJSON) (string, error) {
 	}
 
 	// check for a randomly set port via --publish-all
-	if len(container.NetworkSettings.Ports) == 1 {
+	if container.NetworkSettings != nil && len(container.NetworkSettings.Ports) == 1 {
 		for _, v := range container.NetworkSettings.Ports {
 			if v != nil && len(v) > 0 {
 				port := v[0].HostPort
