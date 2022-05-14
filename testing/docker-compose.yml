@@ -11,6 +11,11 @@ services:
     restart: unless-stopped
     ports:
       - 8088:80
+    healthcheck:
+      test: [ "CMD", "curl", "-s", "localhost:80" ]
+      timeout: 10s
+      interval: 2s
+      retries: 10
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.nginx.rule=Host(`nginx.local`)"
