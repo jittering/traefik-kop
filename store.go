@@ -11,11 +11,6 @@ import (
 	"gopkg.in/redis.v5"
 )
 
-// TODO create redis/store client (reuse from traefik?)
-// store the list of each type of item in a separate list for each hostname
-// i.e., `traefik_http_middlewares@culture.local` -> [ middlware1, middleware2 ]
-// this  will let us remove them when the disappear from the provided config
-
 func collectKeys(m interface{}) []string {
 	mk := reflect.ValueOf(m).MapKeys()
 	// set := mapset.NewSet()
@@ -37,6 +32,8 @@ type Store struct {
 }
 
 func NewStore(hostname string, addr string, pass string, db int) *Store {
+	logrus.Infof("creating new redis store at %s for hostname %s", addr, hostname)
+
 	store := &Store{
 		Hostname: hostname,
 		Addr:     addr,
