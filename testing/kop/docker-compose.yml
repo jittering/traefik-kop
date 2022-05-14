@@ -1,0 +1,13 @@
+# Compose file for testing traefik-kop itself from within a container env
+version: "3"
+
+services:
+  traefik-kop:
+    image: "ghcr.io/jittering/traefik-kop:latest"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - "REDIS_ADDR=172.28.183.97:6380"
+      - "BIND_IP=172.28.183.97"
+      - "DEBUG=1"
