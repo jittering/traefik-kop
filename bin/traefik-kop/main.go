@@ -130,7 +130,7 @@ func doStart(c *cli.Context) error {
 func getHostname() string {
 	hostname, err := os.Hostname()
 	if err != nil {
-		return ""
+		return "traefik-kop"
 	}
 	return hostname
 }
