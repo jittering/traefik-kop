@@ -30,7 +30,7 @@ release: clean
 	goreleaser release --rm-dist --skip-validate
 
 update-changelog:
-	echo "# Changelog" >> temp.md
+	echo -e "# Changelog\n" >> temp.md
 	rel=$$(gh release list | head -n 1 | awk '{print $$1}'); \
 		echo "## $$rel" >> temp.md; \
 		echo "" >> temp.md; \
