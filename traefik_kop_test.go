@@ -11,9 +11,17 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
+	"github.com/traefik/traefik/v2/pkg/log"
 )
+
+func init() {
+	logrus.SetLevel(logrus.DebugLevel)
+	log.SetLevel(logrus.DebugLevel)
+	log.WithoutContext().WriterLevel(logrus.DebugLevel)
+}
 
 type fakeDockerClient struct {
 	client.APIClient

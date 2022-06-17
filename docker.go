@@ -50,6 +50,9 @@ func getClientOpts(endpoint string) ([]client.Opt, error) {
 }
 
 func findContainerByServiceName(dc client.APIClient, svcType string, svcName string, routerName string) (types.ContainerJSON, error) {
+	svcName = strings.TrimSuffix(svcName, "@docker")
+	routerName = strings.TrimSuffix(routerName, "@docker")
+
 	list, err := dc.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err != nil {
 		return types.ContainerJSON{}, errors.Wrap(err, "failed to list containers")
@@ -63,9 +66,8 @@ func findContainerByServiceName(dc client.APIClient, svcType string, svcName str
 		svcNeedle := fmt.Sprintf("traefik.%s.services.%s", svcType, svcName)
 		routerNeedle := fmt.Sprintf("traefik.%s.routers.%s", svcType, routerName)
 		for k := range container.Config.Labels {
-			if strings.Contains(k, svcNeedle) {
-				return container, nil
-			} else if routerName != "" && strings.Contains(k, routerNeedle) {
+			if strings.Contains(k, svcNeedle) || (routerName != "" && strings.Contains(k, routerNeedle)) {
+				logrus.Debugf("found container '%s' (%s) for service '%s'", container.Name, container.ID, svcName)
 				return container, nil
 			}
 		}
