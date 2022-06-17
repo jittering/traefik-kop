@@ -94,14 +94,14 @@ func Start(config Config) {
 //
 // By default, traefik finds the local/internal docker IP for each container.
 // Since we are exposing these services to an external node/server, we need
-// to replace an IPs with the correct IP for this server, as configured at startup.
+// to replace any IPs with the correct IP for this server, as configured at startup.
 func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip string) {
 	// modify HTTP URLs
 	if conf.HTTP != nil && conf.HTTP.Services != nil {
 		for svcName, svc := range conf.HTTP.Services {
 			logrus.Debugf("found http service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
-				network_ip := getContainerIP(dockerClient, conf, "http", svcName)
+				network_ip := getContainerNetworkIP(dockerClient, conf, "http", svcName)
 				if network_ip != "" {
 					// override with container IP, if available
 					ip = network_ip
@@ -157,42 +157,43 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 }
 
 func getRouterOfService(conf *dynamic.Configuration, svcName string, svcType string) string {
+	svcName = strings.TrimSuffix(svcName, "@docker")
+	name := ""
+
 	if svcType == "http" {
 		for routerName, router := range conf.HTTP.Routers {
 			if router.Service == svcName {
-				return routerName
+				name = routerName
+				break
 			}
 		}
 	} else if svcType == "tcp" {
 		for routerName, router := range conf.TCP.Routers {
 			if router.Service == svcName {
-				return routerName
+				name = routerName
+				break
 			}
 		}
 	} else if svcType == "udp" {
 		for routerName, router := range conf.UDP.Routers {
 			if router.Service == svcName {
-				return routerName
+				name = routerName
+				break
 			}
 		}
 	}
 
-	return ""
+	logrus.Debugf("found router '%s' for service %s", name, svcName)
+	return name
 }
 
 // Get host-port binding from container, if not explicitly set via labels
 func getContainerPort(dockerClient client.APIClient, conf *dynamic.Configuration, svcType string, svcName string, port string) string {
-	svcName = strings.TrimSuffix(svcName, "@docker")
-	routerName := getRouterOfService(conf, svcName, svcType)
-	routerName = strings.TrimSuffix(routerName, "@docker")
-
-	logrus.Debugf("found router %s for service %s", routerName, svcName)
-	container, err := findContainerByServiceName(dockerClient, svcType, svcName, routerName)
+	container, err := findContainerByServiceName(dockerClient, svcType, svcName, getRouterOfService(conf, svcName, svcType))
 	if err != nil {
 		logrus.Warnf("failed to find host-port: %s", err)
 		return port
 	}
-	logrus.Debugf("found container '%s' (%s) for service '%s'", container.Name, container.ID, svcName)
 	if isPortSet(container, svcType, svcName) {
 		logrus.Debugf("using explicitly set port %s for %s", port, svcName)
 		return port
@@ -210,18 +211,20 @@ func getContainerPort(dockerClient client.APIClient, conf *dynamic.Configuration
 	return exposedPort
 }
 
-func getContainerIP(dockerClient client.APIClient, conf *dynamic.Configuration, svcType string, svcName string) string {
-	svcName = strings.TrimSuffix(svcName, "@docker")
-	routerName := getRouterOfService(conf, svcName, svcType)
-	routerName = strings.TrimSuffix(routerName, "@docker")
-
-	logrus.Debugf("found router %s for service %s", routerName, svcName)
-	container, _ := findContainerByServiceName(dockerClient, svcType, svcName, routerName)
-
-	network_name := container.Config.Labels["traefik.docker.network"]
-	logrus.Debugf("found network name '%s' for %s", network_name, svcName)
-	if network_name != "" {
-		return container.NetworkSettings.Networks[network_name].IPAddress
+// Gets the container IP when it is configured to use a network-routable address
+// (i.e., via CNI plugins such as calico or weave)
+func getContainerNetworkIP(dockerClient client.APIClient, conf *dynamic.Configuration, svcType string, svcName string) string {
+	container, err := findContainerByServiceName(dockerClient, svcType, svcName, getRouterOfService(conf, svcName, svcType))
+	if err != nil {
+		return ""
 	}
-	return ""
+
+	networkName := container.Config.Labels["traefik.docker.network"]
+	if networkName == "" {
+		logrus.Debugf("no network label set for %s", svcName)
+		return ""
+	}
+	logrus.Debugf("found network name '%s' for %s", networkName, svcName)
+
+	return container.NetworkSettings.Networks[networkName].IPAddress
 }
