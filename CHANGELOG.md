@@ -1,4 +1,21 @@
 # Changelog
+
+## v0.11
+
+
+[Full Changelog](https://github.com/jittering/traefik-kop/compare/v0.10.1...v0.11)
+
+#### Notes
+
+* If your container is configured to use a network-routable IP address via an
+overlay network or CNI plugin, that address will override the `bind-ip`
+configuration when the `traefik.docker.network` label is present.
+
+**Merged pull requests:**
+
+- Add support for `traefik.docker.network` [\#8](https://github.com/jittering/traefik-kop/pull/8) ([hcooper](https://github.com/hcooper))
+
+
 ## v0.10.1
 
 * e0af6eb Merge pull request #7 from jittering/fix/port-detect

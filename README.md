@@ -167,8 +167,20 @@ supported.
 To release a new version, simply push a new tag to github.
 
 ```sh
+git push
 git tag -a v0.11.0
 git push --tags
+```
+
+To update the changelog:
+
+```sh
+make update-changelog
+# or (replace tag below)
+docker run -it --rm -v "$(pwd)":/usr/local/src/your-app \
+  githubchangeloggenerator/github-changelog-generator \
+  -u jittering -p traefik-kop --output "" \
+  --since-tag v0.10.1
 ```
 
 ## License
