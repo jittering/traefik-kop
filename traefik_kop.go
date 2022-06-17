@@ -101,9 +101,9 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 		for svcName, svc := range conf.HTTP.Services {
 			logrus.Debugf("found http service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
-				network_ip := "" // fix. persists between loops?
-				network_ip = getContainerIP(dockerClient, conf, "http", svcName)
+				network_ip := getContainerIP(dockerClient, conf, "http", svcName)
 				if network_ip != "" {
+					// override with container IP, if available
 					ip = network_ip
 				}
 				server := &svc.LoadBalancer.Servers[i]
@@ -215,16 +215,13 @@ func getContainerIP(dockerClient client.APIClient, conf *dynamic.Configuration, 
 	routerName := getRouterOfService(conf, svcName, svcType)
 	routerName = strings.TrimSuffix(routerName, "@docker")
 
-	logrus.Debugf("found router %s for service %s", routerName, svcName) // dedup
+	logrus.Debugf("found router %s for service %s", routerName, svcName)
 	container, _ := findContainerByServiceName(dockerClient, svcType, svcName, routerName)
 
-	if isNetworkSet(container) {
-		network_name := container.Config.Labels["traefik.docker.network"]
-		logrus.Debugf("found network name %s for %s", network_name, svcName)
-		if network_name != "" {
-			return container.NetworkSettings.Networks[network_name].IPAddress
-		}
+	network_name := container.Config.Labels["traefik.docker.network"]
+	logrus.Debugf("found network name '%s' for %s", network_name, svcName)
+	if network_name != "" {
+		return container.NetworkSettings.Networks[network_name].IPAddress
 	}
 	return ""
-
 }
