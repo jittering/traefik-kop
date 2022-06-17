@@ -114,6 +114,12 @@ When using host networking this can be auto-detected, however it is advisable in
 the majority of cases to manually set this to the desired IP address. This can
 be done using the docker image by exporting the `BIND_IP` environment variable.
 
+### Container Networking
+
+If your container is configured to use a network-routable IP address via an
+overlay network or CNI plugin, that address will override the `bind-ip`
+configuration above when the `traefik.docker.network` label is present.
+
 ### Service port binding
 
 By default, the service port will be picked up from the container port bindings

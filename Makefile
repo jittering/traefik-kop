@@ -28,3 +28,15 @@ clean:
 
 release: clean
 	goreleaser release --rm-dist --skip-validate
+
+update-changelog:
+	echo "# Changelog" >> temp.md
+	rel=$$(gh release list | head -n 1 | awk '{print $$1}'); \
+		echo "## $$rel" >> temp.md; \
+		echo "" >> temp.md; \
+		gh release view --json body $$rel | \
+			jq --raw-output '.body' | \
+			grep -v '^## Changelog' | \
+			sed -e 's/^#/##/g' >> temp.md
+	cat CHANGELOG.md | grep -v '^# Changelog' >> temp.md
+	mv temp.md CHANGELOG.md
