@@ -1,7 +1,7 @@
 project_name: traefik-kop
 before:
   hooks:
-    - go mod tidy
+    - go mod tidy -compat=1.17
     - go mod download
 builds:
   - main: ./bin/traefik-kop/
