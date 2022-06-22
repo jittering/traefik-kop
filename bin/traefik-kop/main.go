@@ -11,6 +11,8 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+const defaultDockerHost = "unix:///var/run/docker.sock"
+
 var (
 	version string
 	commit  string
@@ -80,6 +82,12 @@ func flags() {
 				Value:   0,
 				EnvVars: []string{"REDIS_DB"},
 			},
+			&cli.StringFlag{
+				Name:    "docker-host",
+				Usage:   "Docker endpoint",
+				Value:   defaultDockerHost,
+				EnvVars: []string{"DOCKER_HOST"},
+			},
 			&cli.BoolFlag{
 				Name:    "verbose",
 				Usage:   "Enable debug logging",
@@ -114,11 +122,12 @@ func main() {
 func doStart(c *cli.Context) error {
 	traefikkop.Version = version
 	config := traefikkop.Config{
-		Hostname: c.String("hostname"),
-		BindIP:   c.String("bind-ip"),
-		Addr:     c.String("redis-addr"),
-		Pass:     c.String("redis-pass"),
-		DB:       c.Int("redis-db"),
+		Hostname:   c.String("hostname"),
+		BindIP:     c.String("bind-ip"),
+		Addr:       c.String("redis-addr"),
+		Pass:       c.String("redis-pass"),
+		DB:         c.Int("redis-db"),
+		DockerHost: c.String("docker-host"),
 	}
 
 	setupLogging(c.Bool("verbose"))

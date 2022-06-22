@@ -1,9 +1,10 @@
 package traefikkop
 
 type Config struct {
-	Hostname string
-	BindIP   string
-	Addr     string
-	Pass     string
-	DB       int
+	DockerHost string
+	Hostname   string
+	BindIP     string
+	Addr       string
+	Pass       string
+	DB         int
 }

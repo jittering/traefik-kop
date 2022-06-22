@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -21,18 +20,11 @@ import (
 
 var Version = ""
 
-const defaultEndpointPath = "/var/run/docker.sock"
-const defaultThrottleDuration = 5 * time.Second
+// const defaultThrottleDuration = 5 * time.Second
 
 func Start(config Config) {
-
-	_, err := os.Stat(defaultEndpointPath)
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
 	dp := &docker.Provider{
-		Endpoint:                "unix://" + defaultEndpointPath,
+		Endpoint:                config.DockerHost,
 		HTTPClientTimeout:       ptypes.Duration(defaultTimeout),
 		SwarmMode:               false,
 		Watch:                   true,
@@ -40,7 +32,7 @@ func Start(config Config) {
 	}
 
 	store := NewStore(config.Hostname, config.Addr, config.Pass, config.DB)
-	err = store.Ping()
+	err := store.Ping()
 	if err != nil {
 		if strings.Contains(err.Error(), config.Addr) {
 			logrus.Fatalf("failed to connect to redis: %s", err)
@@ -58,7 +50,7 @@ func Start(config Config) {
 		panic(err)
 	}
 
-	dockerClient, err := createDockerClient("unix://" + defaultEndpointPath)
+	dockerClient, err := createDockerClient(config.DockerHost)
 	if err != nil {
 		logrus.Fatalf("failed to create docker client: %s", err)
 	}
@@ -69,7 +61,6 @@ func Start(config Config) {
 	watcher := server.NewConfigurationWatcher(
 		routinesPool,
 		providerAggregator,
-		time.Duration(defaultThrottleDuration),
 		[]string{},
 		"docker",
 	)
