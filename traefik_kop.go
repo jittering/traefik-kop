@@ -58,25 +58,45 @@ func Start(config Config) {
 	ctx := context.Background()
 	routinesPool := safe.NewPool(ctx)
 
+	handleConfigChange := func(conf dynamic.Configuration) {
+		// logrus.Printf("got new conf..\n")
+		// fmt.Printf("%s\n", dumpJson(conf))
+		logrus.Infoln("refreshing traefik-kop configuration")
+		replaceIPs(dockerClient, &conf, config.BindIP)
+		err := store.Store(conf)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	watcher := server.NewConfigurationWatcher(
 		routinesPool,
 		providerAggregator,
 		[]string{},
 		"docker",
 	)
-
-	watcher.AddListener(func(conf dynamic.Configuration) {
-		// logrus.Printf("got new conf..\n")
-		// fmt.Printf("%s\n", dumpJson(conf))
-		logrus.Infoln("refreshing configuration")
-		replaceIPs(dockerClient, &conf, config.BindIP)
-		err := store.Store(conf)
-		if err != nil {
-			panic(err)
-		}
-	})
-
+	watcher.AddListener(handleConfigChange)
 	watcher.Start()
+
+	if true {
+		pollingProvider := newPollingProvider(
+			time.Second*5,
+			&docker.Provider{
+				Endpoint:          config.DockerHost,
+				HTTPClientTimeout: ptypes.Duration(defaultTimeout),
+				SwarmMode:         false,
+				Watch:             false,
+			},
+		)
+		pollingWatcher := server.NewConfigurationWatcher(
+			routinesPool,
+			pollingProvider,
+			[]string{},
+			"docker",
+		)
+		pollingWatcher.AddListener(handleConfigChange)
+		pollingWatcher.Start()
+	}
 
 	select {} // go forever
 }
