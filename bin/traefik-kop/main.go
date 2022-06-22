@@ -88,6 +88,12 @@ func flags() {
 				Value:   defaultDockerHost,
 				EnvVars: []string{"DOCKER_HOST"},
 			},
+			&cli.Int64Flag{
+				Name:    "poll-interval",
+				Usage:   "Poll interval for refreshing container list",
+				Value:   60,
+				EnvVars: []string{"KOP_POLL_INTERVAL"},
+			},
 			&cli.BoolFlag{
 				Name:    "verbose",
 				Usage:   "Enable debug logging",
@@ -122,12 +128,13 @@ func main() {
 func doStart(c *cli.Context) error {
 	traefikkop.Version = version
 	config := traefikkop.Config{
-		Hostname:   c.String("hostname"),
-		BindIP:     c.String("bind-ip"),
-		Addr:       c.String("redis-addr"),
-		Pass:       c.String("redis-pass"),
-		DB:         c.Int("redis-db"),
-		DockerHost: c.String("docker-host"),
+		Hostname:     c.String("hostname"),
+		BindIP:       c.String("bind-ip"),
+		Addr:         c.String("redis-addr"),
+		Pass:         c.String("redis-pass"),
+		DB:           c.Int("redis-db"),
+		DockerHost:   c.String("docker-host"),
+		PollInterval: c.Int64("poll-interval"),
 	}
 
 	setupLogging(c.Bool("verbose"))

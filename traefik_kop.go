@@ -73,7 +73,7 @@ func Start(config Config) {
 	multiProvider := newMultiProvider([]provider.Provider{
 		providerAggregator,
 		newPollingProvider(
-			time.Second*5,
+			time.Second*time.Duration(config.PollInterval),
 			&docker.Provider{
 				Endpoint:          config.DockerHost,
 				HTTPClientTimeout: ptypes.Duration(defaultTimeout),
