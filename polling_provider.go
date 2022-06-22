@@ -26,6 +26,11 @@ func (p PollingProvider) Init() error {
 }
 
 func (p PollingProvider) Provide(configurationChan chan<- dynamic.Message, pool *safe.Pool) error {
+	if p.refreshInterval == 0 {
+		logrus.Infoln("Disabling polling provider (interval=0)")
+		return nil
+	}
+
 	logrus.Infof("starting polling provider with %s interval", p.refreshInterval.String())
 	ticker := time.NewTicker(p.refreshInterval)
 
