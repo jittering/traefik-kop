@@ -17,7 +17,7 @@ type PollingProvider struct {
 	upstreamProvider provider.Provider
 }
 
-func newPollingProvider(refreshInterval time.Duration, upstream provider.Provider) *PollingProvider {
+func NewPollingProvider(refreshInterval time.Duration, upstream provider.Provider) *PollingProvider {
 	return &PollingProvider{refreshInterval, upstream}
 }
 

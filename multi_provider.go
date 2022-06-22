@@ -12,7 +12,7 @@ type MultiProvider struct {
 	upstreamProviders []provider.Provider
 }
 
-func newMultiProvider(upstream []provider.Provider) *MultiProvider {
+func NewMultiProvider(upstream []provider.Provider) *MultiProvider {
 	return &MultiProvider{upstream}
 }
 

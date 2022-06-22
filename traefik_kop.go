@@ -70,9 +70,9 @@ func Start(config Config) {
 		}
 	}
 
-	multiProvider := newMultiProvider([]provider.Provider{
+	multiProvider := NewMultiProvider([]provider.Provider{
 		providerAggregator,
-		newPollingProvider(
+		NewPollingProvider(
 			time.Second*time.Duration(config.PollInterval),
 			&docker.Provider{
 				Endpoint:          config.DockerHost,
