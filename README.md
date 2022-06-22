@@ -92,13 +92,16 @@ USAGE:
    traefik-kop [global options] command [command options] [arguments...]
 
 GLOBAL OPTIONS:
-   --hostname value    Hostname to identify this node in redis (default: "culture.local") [$KOP_HOSTNAME]
-   --bind-ip value     IP address to bind services to (default: "192.168.80.99") [$BIND_IP]
-   --redis-addr value  Redis address (default: "127.0.0.1:6379") [$REDIS_ADDR]
-   --redis-pass value  Redis password (if needed) [$REDIS_PASS]
-   --redis-db value    Redis DB number (default: 0) [$REDIS_DB]
-   --verbose           Enable debug logging (default: false) [$VERBOSE, $DEBUG]
-   --help, -h          show help (default: false)
+   --hostname value       Hostname to identify this node in redis (default: "server.local") [$KOP_HOSTNAME]
+   --bind-ip value        IP address to bind services to (default: "auto.detected.ip.addr") [$BIND_IP]
+   --redis-addr value     Redis address (default: "127.0.0.1:6379") [$REDIS_ADDR]
+   --redis-pass value     Redis password (if needed) [$REDIS_PASS]
+   --redis-db value       Redis DB number (default: 0) [$REDIS_DB]
+   --docker-host value    Docker endpoint (default: "unix:///var/run/docker.sock") [$DOCKER_HOST]
+   --poll-interval value  Poll interval for refreshing container list (default: 60) [$KOP_POLL_INTERVAL]
+   --verbose              Enable debug logging (default: true) [$VERBOSE, $DEBUG]
+   --help, -h             show help (default: false)
+   --version, -V          Print the version (default: false)
 ```
 
 Most important are the `bind-ip` and `redis-addr` flags.
@@ -158,9 +161,22 @@ so that traefik can reach it over the network.
 
 ### Docker API
 
-traefik-kop expects to connect to the Docker host API via unix socket at
-`/var/run/docker.sock`. Other connection methods (like ssh, http/s) are not
-supported.
+traefik-kop expects to connect to the Docker host API via a unix socket, by
+default at `/var/run/docker.sock`. The location can be overridden via the
+`DOCKER_HOST` env var or `--docker-host` flag.
+
+Other connection methods (like ssh, http/s) are not supported.
+
+By default, `traefik-kop` will listen for push events via the Docker API in
+order to detect configuration changes. In some circumstances, a change may not
+be pushed correctly. For example, when using healthchecks in certain
+configurations, the `start -> healthy` change may not be detected via push
+event. As a failsafe, there is an additional polling mechanism to detect those
+missed changes.
+
+The default interval of 60 seconds should be light so as not to cause any
+issues, however it can be adjusted as needed via the `KOP_POLL_INTERVAL` env var
+or set to 0 to disable it completely.
 
 ## Releasing
 
