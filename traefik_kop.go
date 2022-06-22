@@ -12,6 +12,7 @@ import (
 	ptypes "github.com/traefik/paerser/types"
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
 	"github.com/traefik/traefik/v2/pkg/config/static"
+	"github.com/traefik/traefik/v2/pkg/provider"
 	"github.com/traefik/traefik/v2/pkg/provider/aggregator"
 	"github.com/traefik/traefik/v2/pkg/provider/docker"
 	"github.com/traefik/traefik/v2/pkg/safe"
@@ -69,17 +70,9 @@ func Start(config Config) {
 		}
 	}
 
-	watcher := server.NewConfigurationWatcher(
-		routinesPool,
+	multiProvider := newMultiProvider([]provider.Provider{
 		providerAggregator,
-		[]string{},
-		"docker",
-	)
-	watcher.AddListener(handleConfigChange)
-	watcher.Start()
-
-	if true {
-		pollingProvider := newPollingProvider(
+		newPollingProvider(
 			time.Second*5,
 			&docker.Provider{
 				Endpoint:          config.DockerHost,
@@ -87,16 +80,17 @@ func Start(config Config) {
 				SwarmMode:         false,
 				Watch:             false,
 			},
-		)
-		pollingWatcher := server.NewConfigurationWatcher(
-			routinesPool,
-			pollingProvider,
-			[]string{},
-			"docker",
-		)
-		pollingWatcher.AddListener(handleConfigChange)
-		pollingWatcher.Start()
-	}
+		),
+	})
+
+	watcher := server.NewConfigurationWatcher(
+		routinesPool,
+		multiProvider,
+		[]string{},
+		"docker",
+	)
+	watcher.AddListener(handleConfigChange)
+	watcher.Start()
 
 	select {} // go forever
 }
