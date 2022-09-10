@@ -8,6 +8,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/traefik/traefik/v2/pkg/provider/docker"
@@ -87,14 +88,25 @@ func isPortSet(container types.ContainerJSON, svcType string, svcName string) bo
 	return false
 }
 
+// getPortBinding checks the docker container config for a port binding for the
+// service. Currently this will only work if a single port is mapped/exposed.
+//
+// i.e., it looks for the following from a docker-compose service:
+//
+// ports:
+//   - 5555:5555
+//
+// If more than one port is bound (e.g., for a service like minio), then this
+// detection will fail. Instead, the user should explicitly set the port in the
+// label.
 func getPortBinding(container types.ContainerJSON) (string, error) {
 	numBindings := len(container.HostConfig.PortBindings)
 	if numBindings > 1 {
-		return "", errors.Errorf("found more than one host-port binding for container '%s'", container.Name)
+		return "", errors.Errorf("found more than one host-port binding for container '%s' (%s)", container.Name, portBindingString(container.HostConfig.PortBindings))
 	}
 	for _, v := range container.HostConfig.PortBindings {
 		if len(v) > 1 {
-			return "", errors.Errorf("found more than one host-port binding for container '%s'", container.Name)
+			return "", errors.Errorf("found more than one host-port binding for container '%s' (%s)", container.Name, portBindingString(container.HostConfig.PortBindings))
 		}
 		return v[0].HostPort, nil
 	}
@@ -115,4 +127,15 @@ func getPortBinding(container types.ContainerJSON) (string, error) {
 	}
 
 	return "", errors.Errorf("no host-port binding found for container '%s'", container.Name)
+}
+
+// Convert host:container port binding map to a compact printable string
+func portBindingString(bindings nat.PortMap) string {
+	s := []string{}
+	for k, v := range bindings {
+		containerPort := strings.TrimSuffix(string(k), "/tcp")
+		containerPort = strings.TrimSuffix(string(containerPort), "/udp")
+		s = append(s, fmt.Sprintf("%s:%s", v[0].HostPort, containerPort))
+	}
+	return strings.Join(s, ", ")
 }

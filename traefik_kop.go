@@ -107,7 +107,8 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 	// modify HTTP URLs
 	if conf.HTTP != nil && conf.HTTP.Services != nil {
 		for svcName, svc := range conf.HTTP.Services {
-			logrus.Debugf("found http service: %s", svcName)
+			log := logrus.WithFields(logrus.Fields{"service": svcName, "service-type": "http"})
+			log.Debugf("found http service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
 				// override with container IP if we have a routable IP
 				ip = getContainerNetworkIP(dockerClient, conf, "http", svcName, ip)
@@ -115,6 +116,13 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 				// replace ip into URLs
 				server := &svc.LoadBalancer.Servers[i]
 				if server.URL != "" {
+					// the URL IP will initially refer to the container-local IP
+					//
+					// the URL Port will initially be the configured port number, either
+					// explicitly via traefik label or detected by traefik. We cannot
+					// determine how the port was set without looking at the traefik
+					// labels ourselves.
+					log.Debugf("using load balancer URL for port detection: %s", server.URL)
 					u, _ := url.Parse(server.URL)
 					p := getContainerPort(dockerClient, conf, "http", svcName, u.Port())
 					if p != "" {
@@ -134,6 +142,7 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 						server.URL += ":" + server.Port
 					}
 				}
+				log.Infof("publishing %s", server.URL)
 			}
 		}
 	}
@@ -201,26 +210,37 @@ func getRouterOfService(conf *dynamic.Configuration, svcName string, svcType str
 }
 
 // Get host-port binding from container, if not explicitly set via labels
+//
+// The `port` param is the value which was either set via label or inferred by
+// traefik during its config parsing (possibly an container-internal port). The
+// purpose of this method is to see if we can find a better match, specifically
+// by looking at the host-port bindings in the docker config.
 func getContainerPort(dockerClient client.APIClient, conf *dynamic.Configuration, svcType string, svcName string, port string) string {
+	log := logrus.WithFields(logrus.Fields{"service": svcName, "service-type": svcType})
 	container, err := findContainerByServiceName(dockerClient, svcType, svcName, getRouterOfService(conf, svcName, svcType))
 	if err != nil {
-		logrus.Warnf("failed to find host-port: %s", err)
+		log.Warnf("failed to find host-port: %s", err)
 		return port
 	}
 	if isPortSet(container, svcType, svcName) {
-		logrus.Debugf("using explicitly set port %s for %s", port, svcName)
+		log.Debugf("using explicitly set port %s for %s", port, svcName)
 		return port
 	}
 	exposedPort, err := getPortBinding(container)
 	if err != nil {
-		logrus.Warn(err)
+		if strings.Contains(err.Error(), "no host-port binding") {
+			log.Debug(err)
+		} else {
+			log.Warn(err)
+		}
+		log.Debugf("using existing port %s", port)
 		return port
 	}
 	if exposedPort == "" {
-		logrus.Warnf("failed to find host-port for service %s", svcName)
+		log.Warnf("failed to find host-port for service %s", svcName)
 		return port
 	}
-	logrus.Debugf("overriding service port from container host-port: using %s (was %s) for %s", exposedPort, port, svcName)
+	log.Debugf("overriding service port from container host-port: using %s (was %s) for %s", exposedPort, port, svcName)
 	return exposedPort
 }
 
