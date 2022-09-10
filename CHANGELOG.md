@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.12.1
+
+This release updates the upstream version of the traefik library to v2.8.4 and
+adds additional logging around port detection (both debug and info levels) to
+make it easier to see what's going on and troubleshoot various scenarios.
+
+[Full Changelog](https://github.com/jittering/traefik-kop/compare/v0.12...v0.12.1)
+
+- [8c5a3f0](https://github.com/jittering/traefik-kop/commit/8c5a3f0) build: bump actions/cache to v3
+- [dad6e90](https://github.com/jittering/traefik-kop/commit/dad6e90) build: bump go version in github actions
+- [f009b84](https://github.com/jittering/traefik-kop/commit/f009b84) docs: added more detail and logging around port selection
+- [2f18114](https://github.com/jittering/traefik-kop/commit/2f18114) test: added helloworld service for testing multiple bindings
+- [be636f7](https://github.com/jittering/traefik-kop/commit/be636f7) build: upgraded traefik to 2.8.4 (now supports go 1.18+)
+
 ## v0.12
 
 ### Notes
