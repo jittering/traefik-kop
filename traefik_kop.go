@@ -23,15 +23,37 @@ var Version = ""
 
 // const defaultThrottleDuration = 5 * time.Second
 
-func Start(config Config) {
-	dp := &docker.Provider{
-		Endpoint:                config.DockerHost,
-		HTTPClientTimeout:       ptypes.Duration(defaultTimeout),
-		SwarmMode:               false,
-		Watch:                   true,
-		SwarmModeRefreshSeconds: ptypes.Duration(15 * time.Second),
+// newDockerProvider creates a provider via yaml config or returns a default
+// which connects to docker over a unix socket
+func newDockerProvider(config Config) *docker.Provider {
+	dp, err := loadDockerConfig(config.DockerConfig)
+	if err != nil {
+		logrus.Fatalf("failed to read docker config: %s", err)
+
 	}
 
+	if dp == nil {
+		dp = &docker.Provider{}
+	}
+
+	// set defaults
+	if dp.Endpoint == "" {
+		dp.Endpoint = config.DockerHost
+	}
+	if dp.HTTPClientTimeout.String() != "0s" && strings.HasPrefix(dp.Endpoint, "unix://") {
+		// force to 0 for unix socket
+		dp.HTTPClientTimeout = ptypes.Duration(defaultTimeout)
+	}
+	if dp.SwarmModeRefreshSeconds.String() == "0s" {
+		dp.SwarmModeRefreshSeconds = ptypes.Duration(15 * time.Second)
+	}
+	dp.Watch = true // always
+
+	return dp
+}
+
+func Start(config Config) {
+	dp := newDockerProvider(config)
 	store := NewStore(config.Hostname, config.Addr, config.Pass, config.DB)
 	err := store.Ping()
 	if err != nil {
@@ -70,16 +92,13 @@ func Start(config Config) {
 		}
 	}
 
+	pollingDockerProvider := newDockerProvider(config)
+	pollingDockerProvider.Watch = false
 	multiProvider := NewMultiProvider([]provider.Provider{
 		providerAggregator,
 		NewPollingProvider(
 			time.Second*time.Duration(config.PollInterval),
-			&docker.Provider{
-				Endpoint:          config.DockerHost,
-				HTTPClientTimeout: ptypes.Duration(defaultTimeout),
-				SwarmMode:         false,
-				Watch:             false,
-			},
+			pollingDockerProvider,
 		),
 	})
 

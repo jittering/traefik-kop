@@ -88,6 +88,11 @@ func flags() {
 				Value:   defaultDockerHost,
 				EnvVars: []string{"DOCKER_HOST"},
 			},
+			&cli.StringFlag{
+				Name:    "docker-config",
+				Usage:   "Docker provider config",
+				EnvVars: []string{"DOCKER_CONFIG"},
+			},
 			&cli.Int64Flag{
 				Name:    "poll-interval",
 				Usage:   "Poll interval for refreshing container list",
@@ -134,10 +139,12 @@ func doStart(c *cli.Context) error {
 		Pass:         c.String("redis-pass"),
 		DB:           c.Int("redis-db"),
 		DockerHost:   c.String("docker-host"),
+		DockerConfig: c.String("docker-config"),
 		PollInterval: c.Int64("poll-interval"),
 	}
 
 	setupLogging(c.Bool("verbose"))
+	logrus.Debugf("using traefik-kop config: %s", fmt.Sprintf("%+v", config))
 
 	traefikkop.Start(config)
 	return nil
