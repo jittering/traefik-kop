@@ -2,9 +2,7 @@ name: on-push
 
 on:
   create: {}
-  push:
-    branches:
-      - "*"
+  push: {}
   pull_request:
     branches:
       - main
