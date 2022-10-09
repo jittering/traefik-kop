@@ -79,14 +79,10 @@ func findContainerByServiceName(dc client.APIClient, svcType string, svcName str
 }
 
 // Check if the port is explicitly set via label
-func isPortSet(container types.ContainerJSON, svcType string, svcName string) bool {
+func isPortSet(container types.ContainerJSON, svcType string, svcName string) string {
+	svcName = strings.TrimSuffix(svcName, "@docker")
 	needle := fmt.Sprintf("traefik.%s.services.%s.loadbalancer.server.port", svcType, svcName)
-	for k := range container.Config.Labels {
-		if k == needle {
-			return true
-		}
-	}
-	return false
+	return container.Config.Labels[needle]
 }
 
 // getPortBinding checks the docker container config for a port binding for the

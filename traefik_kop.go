@@ -178,11 +178,11 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 			logrus.Debugf("found tcp service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
 				// override with container IP if we have a routable IP
-				ip = getContainerNetworkIP(dockerClient, conf, "http", svcName, ip)
+				ip = getContainerNetworkIP(dockerClient, conf, "tcp", svcName, ip)
 
 				server := &svc.LoadBalancer.Servers[i]
-				server.Address = ip
 				server.Port = getContainerPort(dockerClient, conf, "tcp", svcName, server.Port)
+				server.Address = ip + ":" + server.Port
 			}
 		}
 	}
@@ -193,11 +193,11 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 			logrus.Debugf("found udp service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
 				// override with container IP if we have a routable IP
-				ip = getContainerNetworkIP(dockerClient, conf, "http", svcName, ip)
+				ip = getContainerNetworkIP(dockerClient, conf, "udp", svcName, ip)
 
 				server := &svc.LoadBalancer.Servers[i]
-				server.Address = ip
 				server.Port = getContainerPort(dockerClient, conf, "udp", svcName, server.Port)
+				server.Address = ip + ":" + server.Port
 			}
 		}
 	}
@@ -252,9 +252,9 @@ func getContainerPort(dockerClient client.APIClient, conf *dynamic.Configuration
 		log.Warnf("failed to find host-port: %s", err)
 		return port
 	}
-	if isPortSet(container, svcType, svcName) {
-		log.Debugf("using explicitly set port %s for %s", port, svcName)
-		return port
+	if p := isPortSet(container, svcType, svcName); p != "" {
+		log.Debugf("using explicitly set port %s for %s", p, svcName)
+		return p
 	}
 	exposedPort, err := getPortBinding(container)
 	if err != nil {
@@ -313,7 +313,6 @@ func getKopOverrideBinding(dockerClient client.APIClient, conf *dynamic.Configur
 
 	svcName = strings.TrimSuffix(svcName, "@docker")
 	svcNeedle := fmt.Sprintf("kop.%s.bind.ip", svcName)
-	fmt.Println(svcNeedle)
 	if ip := container.Config.Labels[svcNeedle]; ip != "" {
 		logrus.Debugf("found label %s with IP '%s' for service %s", svcNeedle, ip, svcName)
 		return ip, true
