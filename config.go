@@ -3,6 +3,7 @@ package traefikkop
 import (
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -33,13 +34,15 @@ func loadDockerConfig(input string) (*docker.Provider, error) {
 
 	var r io.Reader
 
-	// see if given filename
-	_, err := os.Stat(input)
-	if err == nil {
-		logrus.Debugf("loading docker config from file %s", input)
-		r, err = os.Open(input)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to open docker config %s", input)
+	if looksLikeFile(input) {
+		// see if given filename
+		_, err := os.Stat(input)
+		if err == nil {
+			logrus.Debugf("loading docker config from file %s", input)
+			r, err = os.Open(input)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to open docker config %s", input)
+			}
 		}
 	} else {
 		logrus.Debugf("loading docker config from yaml input")
@@ -48,10 +51,18 @@ func loadDockerConfig(input string) (*docker.Provider, error) {
 
 	// parse
 	conf := ConfigFile{Docker: docker.Provider{}}
-	err = yaml.NewDecoder(r).Decode(&conf)
+	err := yaml.NewDecoder(r).Decode(&conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load config")
 	}
 
 	return &conf.Docker, nil
+}
+
+func looksLikeFile(input string) bool {
+	if strings.Contains(input, "\n") {
+		return false
+	}
+	ok, _ := regexp.MatchString(`\.ya?ml`, input)
+	return ok
 }

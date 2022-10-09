@@ -90,7 +90,7 @@ func flags() {
 			},
 			&cli.StringFlag{
 				Name:    "docker-config",
-				Usage:   "Docker provider config",
+				Usage:   "Docker provider config (file must end in .yaml)",
 				EnvVars: []string{"DOCKER_CONFIG"},
 			},
 			&cli.Int64Flag{
