@@ -27,7 +27,7 @@ archives:
 checksum:
   name_template: "checksums.txt"
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  name_template: "{{ incpatch .Version }}-next-{{ .ShortCommit }}"
 changelog:
   sort: asc
   filters:
