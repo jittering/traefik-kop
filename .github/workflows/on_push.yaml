@@ -1,6 +1,7 @@
 name: on-push
 
 on:
+  create: {}
   push:
     branches:
       - "*"
