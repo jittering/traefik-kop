@@ -85,7 +85,10 @@ func Start(config Config) {
 		// logrus.Printf("got new conf..\n")
 		// fmt.Printf("%s\n", dumpJson(conf))
 		logrus.Infoln("refreshing traefik-kop configuration")
-		replaceIPs(dockerClient, &conf, config.BindIP)
+		if !dp.UseBindPortIP {
+			// if not using traefik's built in IP/Port detection, use our own
+			replaceIPs(dockerClient, &conf, config.BindIP)
+		}
 		err := store.Store(conf)
 		if err != nil {
 			panic(err)
