@@ -98,6 +98,7 @@ GLOBAL OPTIONS:
    --redis-pass value     Redis password (if needed) [$REDIS_PASS]
    --redis-db value       Redis DB number (default: 0) [$REDIS_DB]
    --docker-host value    Docker endpoint (default: "unix:///var/run/docker.sock") [$DOCKER_HOST]
+   --docker-config value  Docker provider config (file must end in .yaml) [$DOCKER_CONFIG]
    --poll-interval value  Poll interval for refreshing container list (default: 60) [$KOP_POLL_INTERVAL]
    --verbose              Enable debug logging (default: true) [$VERBOSE, $DEBUG]
    --help, -h             show help (default: false)
@@ -121,7 +122,8 @@ be done using the docker image by exporting the `BIND_IP` environment variable.
 
 If your container is configured to use a network-routable IP address via an
 overlay network or CNI plugin, that address will override the `bind-ip`
-configuration above when the `traefik.docker.network` label is present.
+configuration above when the `traefik.docker.network` label is present on the
+service.
 
 ### Service port binding
 
@@ -201,6 +203,6 @@ docker run -it --rm -v "$(pwd)":/usr/local/src/your-app \
 
 ## License
 
-traefik-kop: MIT, (c) 2021, Pixelcop Research, Inc.
+traefik-kop: MIT, (c) 2022, Pixelcop Research, Inc.
 
-traefik: MIT, (c) 2016-2020 Containous SAS; 2020-2021 Traefik Labs
+traefik: MIT, (c) 2016-2020 Containous SAS; 2020-2022 Traefik Labs
