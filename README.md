@@ -204,6 +204,32 @@ The default interval of 60 seconds should be light so as not to cause any
 issues, however it can be adjusted as needed via the `KOP_POLL_INTERVAL` env var
 or set to 0 to disable it completely.
 
+### Traefik Docker Provider Config
+
+In addition to the simple `--docker-host` setting above, all [Docker Provider
+configuration
+options](https://doc.traefik.io/traefik/providers/docker/#provider-configuration)
+are available via the `--docker-config <filename.yaml>` flag which expects
+either a filename to read configuration from or an inline YAML document.
+
+For example:
+
+```yaml
+services:
+  traefik-kop:
+    image: "ghcr.io/jittering/traefik-kop:latest"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      REDIS_ADDR: "172.28.183.97:6380"
+      BIND_IP: "172.28.183.97"
+      DOCKER_CONFIG: |
+        ---
+        docker:
+          defaultRule: Host(`{{.Name}}.foo.example.com`)
+```
+
 ## Releasing
 
 To release a new version, simply push a new tag to github.
