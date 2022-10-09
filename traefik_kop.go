@@ -296,6 +296,14 @@ func getContainerNetworkIP(dockerClient client.APIClient, conf *dynamic.Configur
 	return networkIP
 }
 
+// Check for explicit IP binding set via label
+//
+// Label can be one of two keys:
+// - kop.<service name>.bind.ip = 2.2.2.2
+// - kop.bind.ip = 2.2.2.2
+//
+// For a container with only a single exposed service, or where all services use
+// the same IP, the latter is sufficient.
 func getKopOverrideBinding(dockerClient client.APIClient, conf *dynamic.Configuration, svcType string, svcName string, hostIP string) (string, bool) {
 	container, err := findContainerByServiceName(dockerClient, svcType, svcName, getRouterOfService(conf, svcName, svcType))
 	if err != nil {

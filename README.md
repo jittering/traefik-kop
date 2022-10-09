@@ -107,6 +107,18 @@ GLOBAL OPTIONS:
 
 Most important are the `bind-ip` and `redis-addr` flags.
 
+## IP Binding
+
+There are a number of ways to set the IP published to traefik. Below is the
+order of precedence (highest first) and detailed descriptions of each setting.
+
+1. `kop.<service name>.bind.ip` label
+2. `kop.bind.ip` label
+3. Container networking IP
+4. `--bind-ip` CLI flag
+5. `BIND_IP` env var
+6. Auto-detected host IP
+
 ### bind-ip
 
 Since your upstream docker nodes are external to your primary traefik server,
@@ -118,6 +130,18 @@ When using host networking this can be auto-detected, however it is advisable in
 the majority of cases to manually set this to the desired IP address. This can
 be done using the docker image by exporting the `BIND_IP` environment variable.
 
+### traefik-kop service labels
+
+The bind IP can be set via label for each service/container.
+
+Labels can be one of two keys:
+
+- `kop.<service name>.bind.ip=2.2.2.2`
+- `kop.bind.ip=2.2.2.2`
+
+For a container with a single exposed service, or where all services use
+the same IP, the latter is sufficient.
+
 ### Container Networking
 
 If your container is configured to use a network-routable IP address via an
@@ -125,7 +149,7 @@ overlay network or CNI plugin, that address will override the `bind-ip`
 configuration above when the `traefik.docker.network` label is present on the
 service.
 
-### Service port binding
+## Service port binding
 
 By default, the service port will be picked up from the container port bindings
 if only a single port is bound. For example:
@@ -161,7 +185,7 @@ service port on the host and tell traefik to bind to *that* port (8088 in the
 example above) in the load balancer config, not the internal port (80). This is
 so that traefik can reach it over the network.
 
-### Docker API
+## Docker API
 
 traefik-kop expects to connect to the Docker host API via a unix socket, by
 default at `/var/run/docker.sock`. The location can be overridden via the
