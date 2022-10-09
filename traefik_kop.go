@@ -132,8 +132,11 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 			log := logrus.WithFields(logrus.Fields{"service": svcName, "service-type": "http"})
 			log.Debugf("found http service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
-				// override with container IP if we have a routable IP
-				ip = getContainerNetworkIP(dockerClient, conf, "http", svcName, ip)
+				ip, changed := getKopOverrideBinding(dockerClient, conf, "http", svcName, ip)
+				if !changed {
+					// override with container IP if we have a routable IP
+					ip = getContainerNetworkIP(dockerClient, conf, "http", svcName, ip)
+				}
 
 				// replace ip into URLs
 				server := &svc.LoadBalancer.Servers[i]
@@ -200,6 +203,11 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 	}
 }
 
+// Get the matching router name for the given service.
+//
+// It is possible that no traefik service was explicitly configured, only a
+// router. In this case, we need to use the router name to find the traefik
+// labels to identify the container.
 func getRouterOfService(conf *dynamic.Configuration, svcName string, svcType string) string {
 	svcName = strings.TrimSuffix(svcName, "@docker")
 	name := ""
@@ -286,4 +294,27 @@ func getContainerNetworkIP(dockerClient client.APIClient, conf *dynamic.Configur
 	networkIP := container.NetworkSettings.Networks[networkName].IPAddress
 	logrus.Debugf("found network name '%s' with container IP '%s' for service %s", networkName, networkIP, svcName)
 	return networkIP
+}
+
+func getKopOverrideBinding(dockerClient client.APIClient, conf *dynamic.Configuration, svcType string, svcName string, hostIP string) (string, bool) {
+	container, err := findContainerByServiceName(dockerClient, svcType, svcName, getRouterOfService(conf, svcName, svcType))
+	if err != nil {
+		logrus.Debugf("failed to find container for service '%s': %s", svcName, err)
+		return hostIP, false
+	}
+
+	svcName = strings.TrimSuffix(svcName, "@docker")
+	svcNeedle := fmt.Sprintf("kop.%s.bind.ip", svcName)
+	fmt.Println(svcNeedle)
+	if ip := container.Config.Labels[svcNeedle]; ip != "" {
+		logrus.Debugf("found label %s with IP '%s' for service %s", svcNeedle, ip, svcName)
+		return ip, true
+	}
+
+	if ip := container.Config.Labels["kop.bind.ip"]; ip != "" {
+		logrus.Debugf("found label %s with IP '%s' for service %s", "kop.bind.ip", ip, svcName)
+		return ip, true
+	}
+
+	return hostIP, false
 }

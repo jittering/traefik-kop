@@ -50,6 +50,7 @@ func getClientOpts(endpoint string) ([]client.Opt, error) {
 	return opts, nil
 }
 
+// looks up the docker container by finding the matching service or router traefik label
 func findContainerByServiceName(dc client.APIClient, svcType string, svcName string, routerName string) (types.ContainerJSON, error) {
 	svcName = strings.TrimSuffix(svcName, "@docker")
 	routerName = strings.TrimSuffix(routerName, "@docker")

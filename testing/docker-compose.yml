@@ -59,6 +59,27 @@ services:
       - "traefik.http.routers.hello-detect2.tls.certresolver=default"
       - "traefik.http.services.hello-detect2.loadbalancer.server.scheme=http"
 
+  # Hello service with IP bind override
+  helloip:
+    build:
+      dockerfile: ./helloworld/Dockerfile
+      context: ./
+    restart: unless-stopped
+    ports:
+      - 5599:5555
+    labels:
+      # - "kop.bind.ip=6.6.6.6"
+      - "kop.helloip.bind=3.3.3.3:5599"
+      - "kop.helloip.bind.ip=4.4.4.4"
+      - "kop.helloip.bind.port=5599"
+      - "traefik.enable=true"
+      - "traefik.http.routers.helloip.rule=Host(`hello1.local`)"
+      - "traefik.http.routers.helloip.service=hello1"
+      - "traefik.http.routers.helloip.tls=true"
+      - "traefik.http.routers.helloip.tls.certresolver=default"
+      - "traefik.http.services.helloip.loadbalancer.server.scheme=http"
+      - "traefik.http.services.helloip.loadbalancer.server.port=5599"
+
   # Basic nginx with a simple healthcheck
   nginx:
     image: "nginx:alpine"
