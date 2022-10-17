@@ -68,11 +68,6 @@ func Start(config Config) {
 	}
 	providerAggregator := aggregator.NewProviderAggregator(*providers)
 
-	err = providerAggregator.Init()
-	if err != nil {
-		panic(err)
-	}
-
 	dockerClient, err := createDockerClient(config.DockerHost)
 	if err != nil {
 		logrus.Fatalf("failed to create docker client: %s", err)
@@ -104,6 +99,12 @@ func Start(config Config) {
 			pollingDockerProvider,
 		),
 	})
+
+	// initialize all providers
+	err = multiProvider.Init()
+	if err != nil {
+		panic(err)
+	}
 
 	watcher := server.NewConfigurationWatcher(
 		routinesPool,
