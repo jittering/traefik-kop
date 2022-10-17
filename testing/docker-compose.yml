@@ -112,3 +112,17 @@ services:
       - "traefik.http.routers.pihole.tls.certresolver=default"
       - "traefik.http.services.pihole.loadbalancer.server.scheme=http"
       - "traefik.http.services.pihole.loadbalancer.server.port=8089"
+
+  gitea:
+    image: gitea/gitea
+    labels:
+      traefik.enable: true
+      traefik.http.routers.gitea.rule: "Host(`git.domain`)"
+      traefik.http.routers.gitea.entrypoints: webs
+      traefik.http.routers.gitea.service: gitea@redis
+      traefik.http.services.gitea.loadbalancer.server.port: 20080
+
+      traefik.tcp.routers.gitea-ssh.rule: "HostSNI(`*`)"
+      traefik.tcp.routers.gitea-ssh.entrypoints: ssh
+      traefik.tcp.routers.gitea-ssh.service: gitea-ssh@redis
+      traefik.tcp.services.gitea-ssh.loadbalancer.server.port: 20022

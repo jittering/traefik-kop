@@ -21,6 +21,7 @@ require (
 	github.com/traefik/traefik/v2 v2.8.4
 	github.com/urfave/cli/v2 v2.3.0
 	gopkg.in/redis.v5 v5.2.9
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -287,7 +288,6 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	howett.net/plist v0.0.0-20181124034731-591f970eefbb // indirect
 	k8s.io/api v0.22.1 // indirect
 	k8s.io/apiextensions-apiserver v0.21.3 // indirect
