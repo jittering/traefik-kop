@@ -1,5 +1,26 @@
 # Changelog
 
+## [v0.13](https://github.com/jittering/traefik-kop/tree/v0.13) (2022-10-17)
+
+[Full Changelog](https://github.com/jittering/traefik-kop/compare/v0.12.1...v0.13)
+
+### New Features
+
+- Set bind IP per-container or service
+- Set traefik docker provider config (e.g., `defaultRule`)
+
+### Fixes
+
+- Correctly set port for TCP and UDP services
+
+### Closed issues
+
+- Go runtime error [\#20](https://github.com/jittering/traefik-kop/issues/20)
+- Default Rule [\#18](https://github.com/jittering/traefik-kop/issues/18)
+- Provide IP for each docker via label [\#17](https://github.com/jittering/traefik-kop/issues/17)
+- setting port for tcp service does not work [\#16](https://github.com/jittering/traefik-kop/issues/16)
+- Doesn't work with multiple services on one container [\#14](https://github.com/jittering/traefik-kop/issues/14)
+
 ## v0.12.1
 
 This release updates the upstream version of the traefik library to v2.8.4 and
