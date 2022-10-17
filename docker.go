@@ -50,6 +50,7 @@ func getClientOpts(endpoint string) ([]client.Opt, error) {
 	return opts, nil
 }
 
+// looks up the docker container by finding the matching service or router traefik label
 func findContainerByServiceName(dc client.APIClient, svcType string, svcName string, routerName string) (types.ContainerJSON, error) {
 	svcName = strings.TrimSuffix(svcName, "@docker")
 	routerName = strings.TrimSuffix(routerName, "@docker")
@@ -114,7 +115,7 @@ func getPortBinding(container types.ContainerJSON) (string, error) {
 	// check for a randomly set port via --publish-all
 	if container.NetworkSettings != nil && len(container.NetworkSettings.Ports) == 1 {
 		for _, v := range container.NetworkSettings.Ports {
-			if v != nil && len(v) > 0 {
+			if len(v) > 0 {
 				port := v[0].HostPort
 				if port != "" {
 					if len(v) > 1 {

@@ -98,6 +98,7 @@ GLOBAL OPTIONS:
    --redis-pass value     Redis password (if needed) [$REDIS_PASS]
    --redis-db value       Redis DB number (default: 0) [$REDIS_DB]
    --docker-host value    Docker endpoint (default: "unix:///var/run/docker.sock") [$DOCKER_HOST]
+   --docker-config value  Docker provider config (file must end in .yaml) [$DOCKER_CONFIG]
    --poll-interval value  Poll interval for refreshing container list (default: 60) [$KOP_POLL_INTERVAL]
    --verbose              Enable debug logging (default: true) [$VERBOSE, $DEBUG]
    --help, -h             show help (default: false)
@@ -105,6 +106,18 @@ GLOBAL OPTIONS:
 ```
 
 Most important are the `bind-ip` and `redis-addr` flags.
+
+## IP Binding
+
+There are a number of ways to set the IP published to traefik. Below is the
+order of precedence (highest first) and detailed descriptions of each setting.
+
+1. `kop.<service name>.bind.ip` label
+2. `kop.bind.ip` label
+3. Container networking IP
+4. `--bind-ip` CLI flag
+5. `BIND_IP` env var
+6. Auto-detected host IP
 
 ### bind-ip
 
@@ -117,13 +130,26 @@ When using host networking this can be auto-detected, however it is advisable in
 the majority of cases to manually set this to the desired IP address. This can
 be done using the docker image by exporting the `BIND_IP` environment variable.
 
+### traefik-kop service labels
+
+The bind IP can be set via label for each service/container.
+
+Labels can be one of two keys:
+
+- `kop.<service name>.bind.ip=2.2.2.2`
+- `kop.bind.ip=2.2.2.2`
+
+For a container with a single exposed service, or where all services use
+the same IP, the latter is sufficient.
+
 ### Container Networking
 
 If your container is configured to use a network-routable IP address via an
 overlay network or CNI plugin, that address will override the `bind-ip`
-configuration above when the `traefik.docker.network` label is present.
+configuration above when the `traefik.docker.network` label is present on the
+service.
 
-### Service port binding
+## Service port binding
 
 By default, the service port will be picked up from the container port bindings
 if only a single port is bound. For example:
@@ -159,7 +185,7 @@ service port on the host and tell traefik to bind to *that* port (8088 in the
 example above) in the load balancer config, not the internal port (80). This is
 so that traefik can reach it over the network.
 
-### Docker API
+## Docker API
 
 traefik-kop expects to connect to the Docker host API via a unix socket, by
 default at `/var/run/docker.sock`. The location can be overridden via the
@@ -177,6 +203,32 @@ missed changes.
 The default interval of 60 seconds should be light so as not to cause any
 issues, however it can be adjusted as needed via the `KOP_POLL_INTERVAL` env var
 or set to 0 to disable it completely.
+
+### Traefik Docker Provider Config
+
+In addition to the simple `--docker-host` setting above, all [Docker Provider
+configuration
+options](https://doc.traefik.io/traefik/providers/docker/#provider-configuration)
+are available via the `--docker-config <filename.yaml>` flag which expects
+either a filename to read configuration from or an inline YAML document.
+
+For example:
+
+```yaml
+services:
+  traefik-kop:
+    image: "ghcr.io/jittering/traefik-kop:latest"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      REDIS_ADDR: "172.28.183.97:6380"
+      BIND_IP: "172.28.183.97"
+      DOCKER_CONFIG: |
+        ---
+        docker:
+          defaultRule: Host(`{{.Name}}.foo.example.com`)
+```
 
 ## Releasing
 
@@ -201,6 +253,6 @@ docker run -it --rm -v "$(pwd)":/usr/local/src/your-app \
 
 ## License
 
-traefik-kop: MIT, (c) 2021, Pixelcop Research, Inc.
+traefik-kop: MIT, (c) 2022, Pixelcop Research, Inc.
 
-traefik: MIT, (c) 2016-2020 Containous SAS; 2020-2021 Traefik Labs
+traefik: MIT, (c) 2016-2020 Containous SAS; 2020-2022 Traefik Labs

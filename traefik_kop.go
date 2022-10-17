@@ -23,15 +23,37 @@ var Version = ""
 
 // const defaultThrottleDuration = 5 * time.Second
 
-func Start(config Config) {
-	dp := &docker.Provider{
-		Endpoint:                config.DockerHost,
-		HTTPClientTimeout:       ptypes.Duration(defaultTimeout),
-		SwarmMode:               false,
-		Watch:                   true,
-		SwarmModeRefreshSeconds: ptypes.Duration(15 * time.Second),
+// newDockerProvider creates a provider via yaml config or returns a default
+// which connects to docker over a unix socket
+func newDockerProvider(config Config) *docker.Provider {
+	dp, err := loadDockerConfig(config.DockerConfig)
+	if err != nil {
+		logrus.Fatalf("failed to read docker config: %s", err)
+
 	}
 
+	if dp == nil {
+		dp = &docker.Provider{}
+	}
+
+	// set defaults
+	if dp.Endpoint == "" {
+		dp.Endpoint = config.DockerHost
+	}
+	if dp.HTTPClientTimeout.String() != "0s" && strings.HasPrefix(dp.Endpoint, "unix://") {
+		// force to 0 for unix socket
+		dp.HTTPClientTimeout = ptypes.Duration(defaultTimeout)
+	}
+	if dp.SwarmModeRefreshSeconds.String() == "0s" {
+		dp.SwarmModeRefreshSeconds = ptypes.Duration(15 * time.Second)
+	}
+	dp.Watch = true // always
+
+	return dp
+}
+
+func Start(config Config) {
+	dp := newDockerProvider(config)
 	store := NewStore(config.Hostname, config.Addr, config.Pass, config.DB)
 	err := store.Ping()
 	if err != nil {
@@ -46,11 +68,6 @@ func Start(config Config) {
 	}
 	providerAggregator := aggregator.NewProviderAggregator(*providers)
 
-	err = providerAggregator.Init()
-	if err != nil {
-		panic(err)
-	}
-
 	dockerClient, err := createDockerClient(config.DockerHost)
 	if err != nil {
 		logrus.Fatalf("failed to create docker client: %s", err)
@@ -63,25 +80,31 @@ func Start(config Config) {
 		// logrus.Printf("got new conf..\n")
 		// fmt.Printf("%s\n", dumpJson(conf))
 		logrus.Infoln("refreshing traefik-kop configuration")
-		replaceIPs(dockerClient, &conf, config.BindIP)
+		if !dp.UseBindPortIP {
+			// if not using traefik's built in IP/Port detection, use our own
+			replaceIPs(dockerClient, &conf, config.BindIP)
+		}
 		err := store.Store(conf)
 		if err != nil {
 			panic(err)
 		}
 	}
 
+	pollingDockerProvider := newDockerProvider(config)
+	pollingDockerProvider.Watch = false
 	multiProvider := NewMultiProvider([]provider.Provider{
 		providerAggregator,
 		NewPollingProvider(
 			time.Second*time.Duration(config.PollInterval),
-			&docker.Provider{
-				Endpoint:          config.DockerHost,
-				HTTPClientTimeout: ptypes.Duration(defaultTimeout),
-				SwarmMode:         false,
-				Watch:             false,
-			},
+			pollingDockerProvider,
 		),
 	})
+
+	// initialize all providers
+	err = multiProvider.Init()
+	if err != nil {
+		panic(err)
+	}
 
 	watcher := server.NewConfigurationWatcher(
 		routinesPool,
@@ -110,8 +133,11 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 			log := logrus.WithFields(logrus.Fields{"service": svcName, "service-type": "http"})
 			log.Debugf("found http service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
-				// override with container IP if we have a routable IP
-				ip = getContainerNetworkIP(dockerClient, conf, "http", svcName, ip)
+				ip, changed := getKopOverrideBinding(dockerClient, conf, "http", svcName, ip)
+				if !changed {
+					// override with container IP if we have a routable IP
+					ip = getContainerNetworkIP(dockerClient, conf, "http", svcName, ip)
+				}
 
 				// replace ip into URLs
 				server := &svc.LoadBalancer.Servers[i]
@@ -178,6 +204,11 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 	}
 }
 
+// Get the matching router name for the given service.
+//
+// It is possible that no traefik service was explicitly configured, only a
+// router. In this case, we need to use the router name to find the traefik
+// labels to identify the container.
 func getRouterOfService(conf *dynamic.Configuration, svcName string, svcType string) string {
 	svcName = strings.TrimSuffix(svcName, "@docker")
 	name := ""
@@ -264,4 +295,35 @@ func getContainerNetworkIP(dockerClient client.APIClient, conf *dynamic.Configur
 	networkIP := container.NetworkSettings.Networks[networkName].IPAddress
 	logrus.Debugf("found network name '%s' with container IP '%s' for service %s", networkName, networkIP, svcName)
 	return networkIP
+}
+
+// Check for explicit IP binding set via label
+//
+// Label can be one of two keys:
+// - kop.<service name>.bind.ip = 2.2.2.2
+// - kop.bind.ip = 2.2.2.2
+//
+// For a container with only a single exposed service, or where all services use
+// the same IP, the latter is sufficient.
+func getKopOverrideBinding(dockerClient client.APIClient, conf *dynamic.Configuration, svcType string, svcName string, hostIP string) (string, bool) {
+	container, err := findContainerByServiceName(dockerClient, svcType, svcName, getRouterOfService(conf, svcName, svcType))
+	if err != nil {
+		logrus.Debugf("failed to find container for service '%s': %s", svcName, err)
+		return hostIP, false
+	}
+
+	svcName = strings.TrimSuffix(svcName, "@docker")
+	svcNeedle := fmt.Sprintf("kop.%s.bind.ip", svcName)
+	fmt.Println(svcNeedle)
+	if ip := container.Config.Labels[svcNeedle]; ip != "" {
+		logrus.Debugf("found label %s with IP '%s' for service %s", svcNeedle, ip, svcName)
+		return ip, true
+	}
+
+	if ip := container.Config.Labels["kop.bind.ip"]; ip != "" {
+		logrus.Debugf("found label %s with IP '%s' for service %s", "kop.bind.ip", ip, svcName)
+		return ip, true
+	}
+
+	return hostIP, false
 }

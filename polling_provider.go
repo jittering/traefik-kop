@@ -22,7 +22,7 @@ func NewPollingProvider(refreshInterval time.Duration, upstream provider.Provide
 }
 
 func (p PollingProvider) Init() error {
-	return nil
+	return p.upstreamProvider.Init()
 }
 
 func (p PollingProvider) Provide(configurationChan chan<- dynamic.Message, pool *safe.Pool) error {

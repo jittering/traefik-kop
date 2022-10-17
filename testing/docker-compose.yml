@@ -1,12 +1,14 @@
 version: "3"
 
 services:
+  # Redis for use in testing, if we don't have one available locally
   redis:
     image: "redis:alpine"
     restart: unless-stopped
     ports:
       - 6380:6379
 
+  # Service with two routers+services listening on different ports.
   helloworld:
     build:
       dockerfile: ./helloworld/Dockerfile
@@ -33,6 +35,9 @@ services:
   # This service is the same as above except that it does not have a label
   # which explicitly maps the port and so it fails to correctly determine which
   # port to tell traefik to connect to. i.e., both services connect to 5555.
+  #
+  # This scenario will *not* be handled correctly by traefik-kop as we have no
+  # fallback way to determine the port.
   hellodetect:
     build:
       dockerfile: ./helloworld/Dockerfile
@@ -54,6 +59,28 @@ services:
       - "traefik.http.routers.hello-detect2.tls.certresolver=default"
       - "traefik.http.services.hello-detect2.loadbalancer.server.scheme=http"
 
+  # Hello service with IP bind override
+  helloip:
+    build:
+      dockerfile: ./helloworld/Dockerfile
+      context: ./
+    restart: unless-stopped
+    ports:
+      - 5599:5555
+    labels:
+      # - "kop.bind.ip=6.6.6.6"
+      - "kop.helloip.bind=3.3.3.3:5599"
+      - "kop.helloip.bind.ip=4.4.4.4"
+      - "kop.helloip.bind.port=5599"
+      - "traefik.enable=true"
+      - "traefik.http.routers.helloip.rule=Host(`hello1.local`)"
+      - "traefik.http.routers.helloip.service=hello1"
+      - "traefik.http.routers.helloip.tls=true"
+      - "traefik.http.routers.helloip.tls.certresolver=default"
+      - "traefik.http.services.helloip.loadbalancer.server.scheme=http"
+      - "traefik.http.services.helloip.loadbalancer.server.port=5599"
+
+  # Basic nginx with a simple healthcheck
   nginx:
     image: "nginx:alpine"
     restart: unless-stopped
@@ -72,6 +99,7 @@ services:
       - "traefik.http.services.nginx.loadbalancer.server.scheme=http"
       - "traefik.http.services.nginx.loadbalancer.server.port=8088"
 
+  # Pihole to test a specific bug report
   pihole:
     image: "pihole/pihole:latest"
     restart: unless-stopped

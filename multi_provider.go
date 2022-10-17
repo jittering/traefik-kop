@@ -17,6 +17,12 @@ func NewMultiProvider(upstream []provider.Provider) *MultiProvider {
 }
 
 func (p MultiProvider) Init() error {
+	for _, provider := range p.upstreamProviders {
+		err := provider.Init()
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
