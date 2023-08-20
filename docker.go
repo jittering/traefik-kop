@@ -130,9 +130,11 @@ func getPortBinding(container types.ContainerJSON) (string, error) {
 func portBindingString(bindings nat.PortMap) string {
 	s := []string{}
 	for k, v := range bindings {
-		containerPort := strings.TrimSuffix(string(k), "/tcp")
-		containerPort = strings.TrimSuffix(string(containerPort), "/udp")
-		s = append(s, fmt.Sprintf("%s:%s", v[0].HostPort, containerPort))
+		if len(v) > 0 {
+			containerPort := strings.TrimSuffix(string(k), "/tcp")
+			containerPort = strings.TrimSuffix(string(containerPort), "/udp")
+			s = append(s, fmt.Sprintf("%s:%s", v[0].HostPort, containerPort))
+		}
 	}
 	return strings.Join(s, ", ")
 }
