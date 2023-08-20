@@ -292,9 +292,17 @@ func getContainerNetworkIP(dockerClient client.APIClient, conf *dynamic.Configur
 		return hostIP
 	}
 
-	networkIP := container.NetworkSettings.Networks[networkName].IPAddress
-	logrus.Debugf("found network name '%s' with container IP '%s' for service %s", networkName, networkIP, svcName)
-	return networkIP
+	if container.NetworkSettings != nil {
+		networkEndpoint := container.NetworkSettings.Networks[networkName]
+		if networkEndpoint != nil {
+			networkIP := networkEndpoint.IPAddress
+			logrus.Debugf("found network name '%s' with container IP '%s' for service %s", networkName, networkIP, svcName)
+			return networkIP
+		}
+	}
+	// fallback
+	logrus.Debugf("container IP not found for %s", svcName)
+	return hostIP
 }
 
 // Check for explicit IP binding set via label
