@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.13.1
+
+* [build: upgraded docker client dep](https://github.com/jittering/traefik-kop/commit/e7f30f3108f46cf0d174369b45f59d57398d002b)
+* [fix: NPE when creating error message from port map](https://github.com/jittering/traefik-kop/commit/80d40e2aa904a78d4ec7b311c9f99bc449f556f3) ([fixes #24](https://github.com/jittering/traefik-kop/issues/24))
+* [fix: avoid possible NPE when resolving CNI container IP](https://github.com/jittering/traefik-kop/commit/37686b0089ccaf91d4fa13df62447e15671944dd)
+
+
+
 ## [v0.13](https://github.com/jittering/traefik-kop/tree/v0.13) (2022-10-17)
 
 [Full Changelog](https://github.com/jittering/traefik-kop/compare/v0.12.1...v0.13)
