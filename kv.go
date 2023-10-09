@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -112,13 +113,24 @@ func walk(kv *KV, path string, obj interface{}, pos string) {
 		}
 
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Float32, reflect.Float64, reflect.String, reflect.Bool:
+		reflect.String, reflect.Bool:
 
 		// stringify it
-		kv.add(fmt.Sprintf("%v", val.Interface()), path)
+		kv.add(stringify(val.Interface()), path)
+
+	case reflect.Float32, reflect.Float64:
+		kv.add(stringifyFloat(val.Float()), path)
 
 	default:
 		logrus.Warnf("unhandled kind %s: %#v\n", val.Kind(), obj)
 	}
 
+}
+
+func stringify(val interface{}) string {
+	return fmt.Sprintf("%v", val)
+}
+
+func stringifyFloat(val float64) string {
+	return strconv.FormatFloat(val, 'f', -1, 64)
 }
