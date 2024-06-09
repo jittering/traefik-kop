@@ -183,7 +183,11 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 
 				server := &svc.LoadBalancer.Servers[i]
 				server.Port = getContainerPort(dockerClient, conf, "tcp", svcName, server.Port)
-				server.Address = ip + ":" + server.Port
+				logrus.Debugf("using ip '%s' and port '%s' for %s", ip, server.Port, svcName)
+				server.Address = ip
+				if server.Port != "" {
+					server.Address += ":" + server.Port
+				}
 			}
 		}
 	}
@@ -198,7 +202,11 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 
 				server := &svc.LoadBalancer.Servers[i]
 				server.Port = getContainerPort(dockerClient, conf, "udp", svcName, server.Port)
-				server.Address = ip + ":" + server.Port
+				logrus.Debugf("using ip '%s' and port '%s' for %s", ip, server.Port, svcName)
+				server.Address = ip
+				if server.Port != "" {
+					server.Address += ":" + server.Port
+				}
 			}
 		}
 	}
