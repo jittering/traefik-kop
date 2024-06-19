@@ -22,6 +22,9 @@ serve: run
 test:
 	go test ./...
 
+watch:
+	watchexec -e go "make test"
+
 clean:
 	rm -rf dist/
 	rm -f traefik-kop
