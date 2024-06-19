@@ -54,7 +54,7 @@ func newDockerProvider(config Config) *docker.Provider {
 
 func Start(config Config) {
 	dp := newDockerProvider(config)
-	store := NewStore(config.Hostname, config.Addr, config.Pass, config.DB)
+	store := NewRedisStore(config.Hostname, config.Addr, config.Pass, config.DB)
 	err := store.Ping()
 	if err != nil {
 		if strings.Contains(err.Error(), config.Addr) {

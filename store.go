@@ -11,6 +11,11 @@ import (
 	"gopkg.in/redis.v5"
 )
 
+type TraefikStore interface {
+	Store(conf dynamic.Configuration) error
+	Ping() error
+}
+
 func collectKeys(m interface{}) []string {
 	mk := reflect.ValueOf(m).MapKeys()
 	// set := mapset.NewSet()
@@ -22,7 +27,7 @@ func collectKeys(m interface{}) []string {
 	return set
 }
 
-type Store struct {
+type RedisStore struct {
 	Hostname string
 	Addr     string
 	Pass     string
@@ -31,10 +36,10 @@ type Store struct {
 	client *redis.Client
 }
 
-func NewStore(hostname string, addr string, pass string, db int) *Store {
+func NewRedisStore(hostname string, addr string, pass string, db int) TraefikStore {
 	logrus.Infof("creating new redis store at %s for hostname %s", addr, hostname)
 
-	store := &Store{
+	store := &RedisStore{
 		Hostname: hostname,
 		Addr:     addr,
 		Pass:     pass,
@@ -49,17 +54,17 @@ func NewStore(hostname string, addr string, pass string, db int) *Store {
 	return store
 }
 
-func (s *Store) Ping() error {
+func (s *RedisStore) Ping() error {
 	return s.client.Ping().Err()
 }
 
 // sk returns the 'set key' for keeping track of our services/routers/middlewares
 // e.g., traefik_http_routers@culture.local
-func (s Store) sk(b string) string {
+func (s RedisStore) sk(b string) string {
 	return fmt.Sprintf("traefik_%s@%s", b, s.Hostname)
 }
 
-func (s *Store) Store(conf dynamic.Configuration) error {
+func (s *RedisStore) Store(conf dynamic.Configuration) error {
 	s.removeOldKeys(conf.HTTP.Middlewares, "http_middlewares")
 	s.removeOldKeys(conf.HTTP.Routers, "http_routers")
 	s.removeOldKeys(conf.HTTP.Services, "http_services")
@@ -90,7 +95,7 @@ func (s *Store) Store(conf dynamic.Configuration) error {
 	return nil
 }
 
-func (s *Store) swapKeys(setkey string) error {
+func (s *RedisStore) swapKeys(setkey string) error {
 	// store router name list by renaming
 	err := s.client.Rename(setkey+"_new", setkey).Err()
 	if err != nil {
@@ -105,13 +110,13 @@ func (s *Store) swapKeys(setkey string) error {
 
 // k returns the actual config key path
 // e.g., traefik/http/routers/nginx@docker
-func (s Store) k(sk, b string) string {
+func (s RedisStore) k(sk, b string) string {
 	k := strings.ReplaceAll(fmt.Sprintf("traefik_%s", sk), "_", "/")
 	b = strings.TrimSuffix(b, "@docker")
 	return fmt.Sprintf("%s/%s", k, b)
 }
 
-func (s *Store) removeKeys(setkey string, keys []string) error {
+func (s *RedisStore) removeKeys(setkey string, keys []string) error {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -132,7 +137,7 @@ func (s *Store) removeKeys(setkey string, keys []string) error {
 	return nil
 }
 
-func (s *Store) removeOldKeys(m interface{}, setname string) error {
+func (s *RedisStore) removeOldKeys(m interface{}, setname string) error {
 	setkey := s.sk(setname)
 	// store new keys in temp set
 	newkeys := collectKeys(m)
