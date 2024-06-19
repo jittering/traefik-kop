@@ -51,7 +51,7 @@ func Test_replaceIPs(t *testing.T) {
 	// full url
 	require.Equal(t, "http://7.7.7.7:80", cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL)
 
-	// test again with larger fixture, tcp sservice
+	// test again with larger fixture, tcp service
 	cfg = &dynamic.Configuration{}
 	_, err = toml.DecodeFile("./fixtures/sample.toml", &cfg)
 	require.NoError(t, err)
@@ -102,7 +102,7 @@ func Test_replacePorts(t *testing.T) {
 
 	// explicit label present
 	replaceIPs(dc, cfg, "4.4.4.4")
-	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:80"))
+	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:8888"), "URL '%s' should end with '%s'", cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:8888")
 
 	// without label but no port binding
 	delete(dc.container.Config.Labels, portLabel)
