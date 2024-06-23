@@ -238,6 +238,10 @@ func doTest(t *testing.T, file string) *testStore {
 						NetworkID: "testing_default", // should normally look like a random id but we can reuse the name here
 						IPAddress: "172.18.0.2",
 					},
+					"foobar": {
+						NetworkID: "foobar",
+						IPAddress: "10.10.10.5",
+					},
 				},
 				NetworkSettingsBase: types.NetworkSettingsBase{},
 			},

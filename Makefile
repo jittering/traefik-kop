@@ -22,8 +22,11 @@ serve: run
 test:
 	go test ./...
 
+cover:
+	go test -coverprofile=c.out ./...
+
 watch:
-	watchexec -e go "make test"
+	watchexec -e go,yml "make test"
 
 clean:
 	rm -rf dist/

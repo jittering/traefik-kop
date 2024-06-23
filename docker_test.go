@@ -75,3 +75,20 @@ func Test_helloDetect(t *testing.T) {
 		"hello-detect2": {"http", "http://192.168.100.100:5577"},
 	})
 }
+
+func Test_helloIP(t *testing.T) {
+	// override ip via labels
+	store := doTest(t, "helloip.yml")
+	assertServiceIPs(t, store, map[string]svc{
+		"helloip":  {"http", "http://4.4.4.4:5599"},
+		"helloip2": {"http", "http://3.3.3.3:5599"},
+	})
+}
+
+func Test_helloNetwork(t *testing.T) {
+	// use ip from specific docker network
+	store := doTest(t, "network.yml")
+	assertServiceIPs(t, store, map[string]svc{
+		"hello1": {"http", "http://10.10.10.5:5555"},
+	})
+}

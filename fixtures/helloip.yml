@@ -1,0 +1,36 @@
+services:
+  helloip:
+    build:
+      dockerfile: ./helloworld/Dockerfile
+      context: ./
+    restart: unless-stopped
+    ports:
+      - 5599:5555
+    labels:
+      # override ip for a specific service (helloip)
+      - "kop.helloip.bind.ip=4.4.4.4"
+      - "traefik.enable=true"
+      - "traefik.http.routers.helloip.rule=Host(`helloip.local`)"
+      - "traefik.http.routers.helloip.service=helloip"
+      - "traefik.http.routers.helloip.tls=true"
+      - "traefik.http.routers.helloip.tls.certresolver=default"
+      - "traefik.http.services.helloip.loadbalancer.server.scheme=http"
+      - "traefik.http.services.helloip.loadbalancer.server.port=5599"
+
+  helloip2:
+    build:
+      dockerfile: ./helloworld/Dockerfile
+      context: ./
+    restart: unless-stopped
+    ports:
+      - 5599:5555
+    labels:
+      # override without service name (assumes single service or same ip for all services)
+      - "kop.bind.ip=3.3.3.3"
+      - "traefik.enable=true"
+      - "traefik.http.routers.helloip2.rule=Host(`helloip2.local`)"
+      - "traefik.http.routers.helloip2.service=helloip2"
+      - "traefik.http.routers.helloip2.tls=true"
+      - "traefik.http.routers.helloip2.tls.certresolver=default"
+      - "traefik.http.services.helloip2.loadbalancer.server.scheme=http"
+      - "traefik.http.services.helloip2.loadbalancer.server.port=5599"
