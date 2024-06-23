@@ -92,3 +92,11 @@ func Test_helloNetwork(t *testing.T) {
 		"hello1": {"http", "http://10.10.10.5:5555"},
 	})
 }
+
+func Test_TCP(t *testing.T) {
+	// tcp service
+	store := doTest(t, "gitea.yml")
+	assertServiceIPs(t, store, map[string]svc{
+		"gitea-ssh": {"tcp", "192.168.100.100:20022"},
+	})
+}
