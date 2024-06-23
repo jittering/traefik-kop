@@ -52,6 +52,22 @@ func newDockerProvider(config Config) *docker.Provider {
 	return dp
 }
 
+func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider, dockerClient client.APIClient) func(conf dynamic.Configuration) {
+	return func(conf dynamic.Configuration) {
+		// logrus.Printf("got new conf..\n")
+		// fmt.Printf("%s\n", dumpJson(conf))
+		logrus.Infoln("refreshing traefik-kop configuration")
+		if !dp.UseBindPortIP {
+			// if not using traefik's built in IP/Port detection, use our own
+			replaceIPs(dockerClient, &conf, config.BindIP)
+		}
+		err := store.Store(conf)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
 func Start(config Config) {
 	dp := newDockerProvider(config)
 	store := NewRedisStore(config.Hostname, config.Addr, config.Pass, config.DB)
@@ -76,19 +92,7 @@ func Start(config Config) {
 	ctx := context.Background()
 	routinesPool := safe.NewPool(ctx)
 
-	handleConfigChange := func(conf dynamic.Configuration) {
-		// logrus.Printf("got new conf..\n")
-		// fmt.Printf("%s\n", dumpJson(conf))
-		logrus.Infoln("refreshing traefik-kop configuration")
-		if !dp.UseBindPortIP {
-			// if not using traefik's built in IP/Port detection, use our own
-			replaceIPs(dockerClient, &conf, config.BindIP)
-		}
-		err := store.Store(conf)
-		if err != nil {
-			panic(err)
-		}
-	}
+	handleConfigChange := createConfigHandler(config, store, dp, dockerClient)
 
 	pollingDockerProvider := newDockerProvider(config)
 	pollingDockerProvider.Watch = false

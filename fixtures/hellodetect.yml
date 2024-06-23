@@ -1,0 +1,27 @@
+services:
+  # This service is the same as above except that it does not have a label
+  # which explicitly maps the port and so it fails to correctly determine which
+  # port to tell traefik to connect to. i.e., both services connect to 5555.
+  #
+  # This scenario will *not* be handled correctly by traefik-kop as we have no
+  # fallback way to determine the port.
+  hellodetect:
+    build:
+      dockerfile: ./helloworld/Dockerfile
+      context: ./
+    restart: unless-stopped
+    ports:
+      - 5577:5555
+      - 5588:5566
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hello-detect.rule=Host(`hello-detect.local`)"
+      - "traefik.http.routers.hello-detect.service=hello-detect"
+      - "traefik.http.routers.hello-detect.tls=true"
+      - "traefik.http.routers.hello-detect.tls.certresolver=default"
+      - "traefik.http.services.hello-detect.loadbalancer.server.scheme=http"
+      - "traefik.http.routers.hello-detect2.rule=Host(`hello-detect2.local`)"
+      - "traefik.http.routers.hello-detect2.service=hello-detect2"
+      - "traefik.http.routers.hello-detect2.tls=true"
+      - "traefik.http.routers.hello-detect2.tls.certresolver=default"
+      - "traefik.http.services.hello-detect2.loadbalancer.server.scheme=http"
