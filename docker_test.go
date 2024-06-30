@@ -100,3 +100,12 @@ func Test_TCP(t *testing.T) {
 		"gitea-ssh": {"tcp", "192.168.100.100:20022"},
 	})
 }
+
+func Test_TCPMQTT(t *testing.T) {
+	// from https://github.com/jittering/traefik-kop/issues/35
+	store := doTest(t, "mqtt.yml")
+	assertServiceIPs(t, store, map[string]svc{
+		"mqtt-http": {"http", "http://192.168.100.100:9001"},
+		"mqtt-tcp":  {"tcp", "192.168.100.100:1883"},
+	})
+}

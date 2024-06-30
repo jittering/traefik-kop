@@ -315,9 +315,12 @@ func assertServiceIPs(t *testing.T, store *testStore, svcs map[string]svc) {
 		if svc.proto != "http" {
 			path = "address"
 		}
+		key := fmt.Sprintf("traefik/%s/services/%s/loadBalancer/servers/0/%s", svc.proto, serviceName, path)
 		assert.Equal(t,
 			svc.ip,
-			store.kv[fmt.Sprintf("traefik/%s/services/%s/loadBalancer/servers/0/%s", svc.proto, serviceName, path)],
+			store.kv[key],
+			"service has wrong IP at key: %s",
+			key,
 		)
 	}
 }

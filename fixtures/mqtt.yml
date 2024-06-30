@@ -1,0 +1,12 @@
+services:
+  gitea:
+    image: gitea/gitea
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mqtt-http.rule=Host(`mqtt.local`)"
+      - "traefik.http.services.mqtt-http.loadbalancer.server.port=9001"
+      # MQTT routing
+      - "traefik.tcp.routers.mqtt-tcp.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.mqtt-tcp.entrypoints=mqtt"
+      - "traefik.tcp.routers.mqtt-tcp.service=service-broker-mqtt"
+      - "traefik.tcp.services.mqtt-tcp.loadbalancer.server.port=1883"

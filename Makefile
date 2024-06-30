@@ -28,6 +28,9 @@ cover:
 watch:
 	watchexec -e go,yml "make test"
 
+watch-cover:
+	watchexec -e go,yml "make cover"
+
 clean:
 	rm -rf dist/
 	rm -f traefik-kop
