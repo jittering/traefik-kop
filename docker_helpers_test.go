@@ -305,17 +305,18 @@ func assertServiceIP(t *testing.T, store *testStore, serviceName string, ip stri
 }
 
 type svc struct {
+	name  string
 	proto string
 	ip    string
 }
 
-func assertServiceIPs(t *testing.T, store *testStore, svcs map[string]svc) {
-	for serviceName, svc := range svcs {
+func assertServiceIPs(t *testing.T, store *testStore, svcs []svc) {
+	for _, svc := range svcs {
 		path := "url"
 		if svc.proto != "http" {
 			path = "address"
 		}
-		key := fmt.Sprintf("traefik/%s/services/%s/loadBalancer/servers/0/%s", svc.proto, serviceName, path)
+		key := fmt.Sprintf("traefik/%s/services/%s/loadBalancer/servers/0/%s", svc.proto, svc.name, path)
 		assert.Equal(t,
 			svc.ip,
 			store.kv[key],

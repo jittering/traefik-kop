@@ -57,9 +57,9 @@ func Test_helloWorld(t *testing.T) {
 	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
 	assert.Equal(t, "hello2", store.kv["traefik/http/routers/hello2/service"])
 
-	assertServiceIPs(t, store, map[string]svc{
-		"hello1": {"http", "http://192.168.100.100:5555"},
-		"hello2": {"http", "http://192.168.100.100:5566"},
+	assertServiceIPs(t, store, []svc{
+		{"hello1", "http", "http://192.168.100.100:5555"},
+		{"hello2", "http", "http://192.168.100.100:5566"},
 	})
 
 	// assertServiceIP(t, store, "hello1", "http://192.168.100.100:5555")
@@ -70,42 +70,42 @@ func Test_helloWorld(t *testing.T) {
 func Test_helloDetect(t *testing.T) {
 	// both services get mapped to the same port (error case)
 	store := doTest(t, "hellodetect.yml")
-	assertServiceIPs(t, store, map[string]svc{
-		"hello-detect":  {"http", "http://192.168.100.100:5577"},
-		"hello-detect2": {"http", "http://192.168.100.100:5577"},
+	assertServiceIPs(t, store, []svc{
+		{"hello-detect", "http", "http://192.168.100.100:5577"},
+		{"hello-detect2", "http", "http://192.168.100.100:5577"},
 	})
 }
 
 func Test_helloIP(t *testing.T) {
 	// override ip via labels
 	store := doTest(t, "helloip.yml")
-	assertServiceIPs(t, store, map[string]svc{
-		"helloip":  {"http", "http://4.4.4.4:5599"},
-		"helloip2": {"http", "http://3.3.3.3:5599"},
+	assertServiceIPs(t, store, []svc{
+		{"helloip", "http", "http://4.4.4.4:5599"},
+		{"helloip2", "http", "http://3.3.3.3:5599"},
 	})
 }
 
 func Test_helloNetwork(t *testing.T) {
 	// use ip from specific docker network
 	store := doTest(t, "network.yml")
-	assertServiceIPs(t, store, map[string]svc{
-		"hello1": {"http", "http://10.10.10.5:5555"},
+	assertServiceIPs(t, store, []svc{
+		{"hello1", "http", "http://10.10.10.5:5555"},
 	})
 }
 
 func Test_TCP(t *testing.T) {
 	// tcp service
 	store := doTest(t, "gitea.yml")
-	assertServiceIPs(t, store, map[string]svc{
-		"gitea-ssh": {"tcp", "192.168.100.100:20022"},
+	assertServiceIPs(t, store, []svc{
+		{"gitea-ssh", "tcp", "192.168.100.100:20022"},
 	})
 }
 
 func Test_TCPMQTT(t *testing.T) {
 	// from https://github.com/jittering/traefik-kop/issues/35
 	store := doTest(t, "mqtt.yml")
-	assertServiceIPs(t, store, map[string]svc{
-		"mqtt-http": {"http", "http://192.168.100.100:9001"},
-		"mqtt-tcp":  {"tcp", "192.168.100.100:1883"},
+	assertServiceIPs(t, store, []svc{
+		{"mqtt", "http", "http://192.168.100.100:9001"},
+		{"mqtt", "tcp", "192.168.100.100:1883"},
 	})
 }
