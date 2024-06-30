@@ -56,6 +56,8 @@ func Test_helloWorld(t *testing.T) {
 
 	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
 	assert.Equal(t, "hello2", store.kv["traefik/http/routers/hello2/service"])
+	assert.NotNil(t, store.kv["traefik/http/routers/hello1/tls/certResolver"])
+	assert.NotNil(t, store.kv["traefik/http/routers/hello2/tls/certResolver"])
 
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://192.168.100.100:5555"},
@@ -108,4 +110,17 @@ func Test_TCPMQTT(t *testing.T) {
 		{"mqtt", "http", "http://192.168.100.100:9001"},
 		{"mqtt", "tcp", "192.168.100.100:1883"},
 	})
+}
+
+func Test_helloWorldNoCert(t *testing.T) {
+	store := doTest(t, "hello-no-cert.yml")
+
+	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
+	assert.Nil(t, store.kv["traefik/http/routers/hello1/tls/certResolver"])
+
+	assertServiceIPs(t, store, []svc{
+		{"hello1", "http", "http://192.168.100.100:5555"},
+	})
+
+	// assert.Fail(t, "TODO: check for no cert")
 }
