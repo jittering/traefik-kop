@@ -180,18 +180,20 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 	// TCP
 	if conf.TCP != nil && conf.TCP.Services != nil {
 		for svcName, svc := range conf.TCP.Services {
-			logrus.Debugf("found tcp service: %s", svcName)
+			log := logrus.WithFields(logrus.Fields{"service": svcName, "service-type": "tcp"})
+			log.Debugf("found tcp service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
 				// override with container IP if we have a routable IP
 				ip = getContainerNetworkIP(dockerClient, conf, "tcp", svcName, ip)
 
 				server := &svc.LoadBalancer.Servers[i]
 				server.Port = getContainerPort(dockerClient, conf, "tcp", svcName, server.Port)
-				logrus.Debugf("using ip '%s' and port '%s' for %s", ip, server.Port, svcName)
+				log.Debugf("using ip '%s' and port '%s' for %s", ip, server.Port, svcName)
 				server.Address = ip
 				if server.Port != "" {
 					server.Address += ":" + server.Port
 				}
+				log.Infof("publishing %s", server.Address)
 			}
 		}
 	}
@@ -199,18 +201,20 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 	// UDP
 	if conf.UDP != nil && conf.UDP.Services != nil {
 		for svcName, svc := range conf.UDP.Services {
-			logrus.Debugf("found udp service: %s", svcName)
+			log := logrus.WithFields(logrus.Fields{"service": svcName, "service-type": "udp"})
+			log.Debugf("found udp service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
 				// override with container IP if we have a routable IP
 				ip = getContainerNetworkIP(dockerClient, conf, "udp", svcName, ip)
 
 				server := &svc.LoadBalancer.Servers[i]
 				server.Port = getContainerPort(dockerClient, conf, "udp", svcName, server.Port)
-				logrus.Debugf("using ip '%s' and port '%s' for %s", ip, server.Port, svcName)
+				log.Debugf("using ip '%s' and port '%s' for %s", ip, server.Port, svcName)
 				server.Address = ip
 				if server.Port != "" {
 					server.Address += ":" + server.Port
 				}
+				log.Infof("publishing %s", server.Address)
 			}
 		}
 	}
