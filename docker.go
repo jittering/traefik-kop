@@ -16,6 +16,12 @@ import (
 
 // Copied from traefik. See docker provider package for original impl
 
+type dockerCache struct {
+	client  client.APIClient
+	list    []types.Container
+	details map[string]types.ContainerJSON
+}
+
 // Must be 0 for unix socket?
 // Non-zero throws an error
 const defaultTimeout = time.Duration(0)
@@ -51,19 +57,30 @@ func getClientOpts(endpoint string) ([]client.Opt, error) {
 }
 
 // looks up the docker container by finding the matching service or router traefik label
-func findContainerByServiceName(dc client.APIClient, svcType string, svcName string, routerName string) (types.ContainerJSON, error) {
+func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string, routerName string) (types.ContainerJSON, error) {
 	svcName = strings.TrimSuffix(svcName, "@docker")
 	routerName = strings.TrimSuffix(routerName, "@docker")
 
-	list, err := dc.ContainerList(context.Background(), types.ContainerListOptions{})
-	if err != nil {
-		return types.ContainerJSON{}, errors.Wrap(err, "failed to list containers")
-	}
-	for _, c := range list {
-		container, err := dc.ContainerInspect(context.Background(), c.ID)
+	if dc.list == nil {
+		var err error
+		dc.list, err = dc.client.ContainerList(context.Background(), types.ContainerListOptions{})
 		if err != nil {
-			return types.ContainerJSON{}, errors.Wrapf(err, "failed to inspect container %s", c.ID)
+			return types.ContainerJSON{}, errors.Wrap(err, "failed to list containers")
 		}
+	}
+
+	for _, c := range dc.list {
+		var container types.ContainerJSON
+		var ok bool
+		if container, ok = dc.details[c.ID]; !ok {
+			var err error
+			container, err = dc.client.ContainerInspect(context.Background(), c.ID)
+			if err != nil {
+				return types.ContainerJSON{}, errors.Wrapf(err, "failed to inspect container %s", c.ID)
+			}
+			dc.details[c.ID] = container
+		}
+
 		// check labels
 		svcNeedle := fmt.Sprintf("traefik.%s.services.%s", svcType, svcName)
 		routerNeedle := fmt.Sprintf("traefik.%s.routers.%s", svcType, routerName)

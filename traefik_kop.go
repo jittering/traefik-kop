@@ -59,11 +59,17 @@ func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider,
 		// fmt.Printf("%s\n", dumpJson(conf))
 		logrus.Infoln("refreshing traefik-kop configuration")
 
-		filterServices(dockerClient, &conf, config.Namespace)
+		dc := &dockerCache{
+			client:  dockerClient,
+			list:    nil,
+			details: make(map[string]types.ContainerJSON),
+		}
+
+		filterServices(dc, &conf, config.Namespace)
 
 		if !dp.UseBindPortIP {
 			// if not using traefik's built in IP/Port detection, use our own
-			replaceIPs(dockerClient, &conf, config.BindIP)
+			replaceIPs(dc, &conf, config.BindIP)
 		}
 		err := store.Store(conf)
 		if err != nil {
@@ -133,10 +139,10 @@ func keepContainer(ns string, container types.ContainerJSON) bool {
 
 // filter out services by namespace
 // ns is traefik-kop's configured namespace to match against.
-func filterServices(dockerClient client.APIClient, conf *dynamic.Configuration, ns string) {
+func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns string) {
 	if conf.HTTP != nil && conf.HTTP.Services != nil {
 		for svcName := range conf.HTTP.Services {
-			container, err := findContainerByServiceName(dockerClient, "http", svcName, getRouterOfService(conf, svcName, "http"))
+			container, err := dc.findContainerByServiceName("http", svcName, getRouterOfService(conf, svcName, "http"))
 			if err != nil {
 				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
 				continue
@@ -151,7 +157,7 @@ func filterServices(dockerClient client.APIClient, conf *dynamic.Configuration, 
 	if conf.HTTP != nil && conf.HTTP.Routers != nil {
 		for routerName, router := range conf.HTTP.Routers {
 			svcName := router.Service
-			container, err := findContainerByServiceName(dockerClient, "http", svcName, routerName)
+			container, err := dc.findContainerByServiceName("http", svcName, routerName)
 			if err != nil {
 				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
 				continue
@@ -165,7 +171,7 @@ func filterServices(dockerClient client.APIClient, conf *dynamic.Configuration, 
 
 	if conf.TCP != nil && conf.TCP.Services != nil {
 		for svcName := range conf.TCP.Services {
-			container, err := findContainerByServiceName(dockerClient, "tcp", svcName, getRouterOfService(conf, svcName, "tcp"))
+			container, err := dc.findContainerByServiceName("tcp", svcName, getRouterOfService(conf, svcName, "tcp"))
 			if err != nil {
 				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
 				continue
@@ -180,7 +186,7 @@ func filterServices(dockerClient client.APIClient, conf *dynamic.Configuration, 
 	if conf.TCP != nil && conf.TCP.Routers != nil {
 		for routerName, router := range conf.TCP.Routers {
 			svcName := router.Service
-			container, err := findContainerByServiceName(dockerClient, "tcp", svcName, routerName)
+			container, err := dc.findContainerByServiceName("tcp", svcName, routerName)
 			if err != nil {
 				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
 				continue
@@ -194,7 +200,7 @@ func filterServices(dockerClient client.APIClient, conf *dynamic.Configuration, 
 
 	if conf.UDP != nil && conf.UDP.Services != nil {
 		for svcName := range conf.UDP.Services {
-			container, err := findContainerByServiceName(dockerClient, "udp", svcName, getRouterOfService(conf, svcName, "udp"))
+			container, err := dc.findContainerByServiceName("udp", svcName, getRouterOfService(conf, svcName, "udp"))
 			if err != nil {
 				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
 				continue
@@ -209,7 +215,7 @@ func filterServices(dockerClient client.APIClient, conf *dynamic.Configuration, 
 	if conf.UDP != nil && conf.UDP.Routers != nil {
 		for routerName, router := range conf.UDP.Routers {
 			svcName := router.Service
-			container, err := findContainerByServiceName(dockerClient, "udp", svcName, routerName)
+			container, err := dc.findContainerByServiceName("udp", svcName, routerName)
 			if err != nil {
 				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
 				continue
@@ -230,17 +236,17 @@ func filterServices(dockerClient client.APIClient, conf *dynamic.Configuration, 
 //
 // When using CNI, as indicated by the container label `traefik.docker.network`,
 // we will stick with the container IP.
-func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip string) {
+func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 	// modify HTTP URLs
 	if conf.HTTP != nil && conf.HTTP.Services != nil {
 		for svcName, svc := range conf.HTTP.Services {
 			log := logrus.WithFields(logrus.Fields{"service": svcName, "service-type": "http"})
 			log.Debugf("found http service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
-				ip, changed := getKopOverrideBinding(dockerClient, conf, "http", svcName, ip)
+				ip, changed := getKopOverrideBinding(dc, conf, "http", svcName, ip)
 				if !changed {
 					// override with container IP if we have a routable IP
-					ip = getContainerNetworkIP(dockerClient, conf, "http", svcName, ip)
+					ip = getContainerNetworkIP(dc, conf, "http", svcName, ip)
 				}
 
 				// replace ip into URLs
@@ -254,7 +260,7 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 					// labels ourselves.
 					log.Debugf("using load balancer URL for port detection: %s", server.URL)
 					u, _ := url.Parse(server.URL)
-					p := getContainerPort(dockerClient, conf, "http", svcName, u.Port())
+					p := getContainerPort(dc, conf, "http", svcName, u.Port())
 					if p != "" {
 						u.Host = ip + ":" + p
 					} else {
@@ -267,7 +273,7 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 						scheme = server.Scheme
 					}
 					server.URL = fmt.Sprintf("%s://%s", scheme, ip)
-					port := getContainerPort(dockerClient, conf, "http", svcName, server.Port)
+					port := getContainerPort(dc, conf, "http", svcName, server.Port)
 					if port != "" {
 						server.URL += ":" + server.Port
 					}
@@ -292,10 +298,10 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 			log.Debugf("found tcp service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
 				// override with container IP if we have a routable IP
-				ip = getContainerNetworkIP(dockerClient, conf, "tcp", svcName, ip)
+				ip = getContainerNetworkIP(dc, conf, "tcp", svcName, ip)
 
 				server := &svc.LoadBalancer.Servers[i]
-				server.Port = getContainerPort(dockerClient, conf, "tcp", svcName, server.Port)
+				server.Port = getContainerPort(dc, conf, "tcp", svcName, server.Port)
 				log.Debugf("using ip '%s' and port '%s' for %s", ip, server.Port, svcName)
 				server.Address = ip
 				if server.Port != "" {
@@ -313,10 +319,10 @@ func replaceIPs(dockerClient client.APIClient, conf *dynamic.Configuration, ip s
 			log.Debugf("found udp service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
 				// override with container IP if we have a routable IP
-				ip = getContainerNetworkIP(dockerClient, conf, "udp", svcName, ip)
+				ip = getContainerNetworkIP(dc, conf, "udp", svcName, ip)
 
 				server := &svc.LoadBalancer.Servers[i]
-				server.Port = getContainerPort(dockerClient, conf, "udp", svcName, server.Port)
+				server.Port = getContainerPort(dc, conf, "udp", svcName, server.Port)
 				log.Debugf("using ip '%s' and port '%s' for %s", ip, server.Port, svcName)
 				server.Address = ip
 				if server.Port != "" {
@@ -370,9 +376,9 @@ func getRouterOfService(conf *dynamic.Configuration, svcName string, svcType str
 // traefik during its config parsing (possibly an container-internal port). The
 // purpose of this method is to see if we can find a better match, specifically
 // by looking at the host-port bindings in the docker config.
-func getContainerPort(dockerClient client.APIClient, conf *dynamic.Configuration, svcType string, svcName string, port string) string {
+func getContainerPort(dc *dockerCache, conf *dynamic.Configuration, svcType string, svcName string, port string) string {
 	log := logrus.WithFields(logrus.Fields{"service": svcName, "service-type": svcType})
-	container, err := findContainerByServiceName(dockerClient, svcType, svcName, getRouterOfService(conf, svcName, svcType))
+	container, err := dc.findContainerByServiceName(svcType, svcName, getRouterOfService(conf, svcName, svcType))
 	if err != nil {
 		log.Warnf("failed to find host-port: %s", err)
 		return port
@@ -403,8 +409,8 @@ func getContainerPort(dockerClient client.APIClient, conf *dynamic.Configuration
 // (i.e., via CNI plugins such as calico or weave)
 //
 // If not configured, returns the globally bound hostIP
-func getContainerNetworkIP(dockerClient client.APIClient, conf *dynamic.Configuration, svcType string, svcName string, hostIP string) string {
-	container, err := findContainerByServiceName(dockerClient, svcType, svcName, getRouterOfService(conf, svcName, svcType))
+func getContainerNetworkIP(dc *dockerCache, conf *dynamic.Configuration, svcType string, svcName string, hostIP string) string {
+	container, err := dc.findContainerByServiceName(svcType, svcName, getRouterOfService(conf, svcName, svcType))
 	if err != nil {
 		logrus.Debugf("failed to find container for service '%s': %s", svcName, err)
 		return hostIP
@@ -437,8 +443,8 @@ func getContainerNetworkIP(dockerClient client.APIClient, conf *dynamic.Configur
 //
 // For a container with only a single exposed service, or where all services use
 // the same IP, the latter is sufficient.
-func getKopOverrideBinding(dockerClient client.APIClient, conf *dynamic.Configuration, svcType string, svcName string, hostIP string) (string, bool) {
-	container, err := findContainerByServiceName(dockerClient, svcType, svcName, getRouterOfService(conf, svcName, svcType))
+func getKopOverrideBinding(dc *dockerCache, conf *dynamic.Configuration, svcType string, svcName string, hostIP string) (string, bool) {
+	container, err := dc.findContainerByServiceName(svcType, svcName, getRouterOfService(conf, svcName, svcType))
 	if err != nil {
 		logrus.Debugf("failed to find container for service '%s': %s", svcName, err)
 		return hostIP, false
