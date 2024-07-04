@@ -21,6 +21,7 @@ type Config struct {
 	Pass         string
 	DB           int
 	PollInterval int64
+	Namespace    string
 }
 
 type ConfigFile struct {

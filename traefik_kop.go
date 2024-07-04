@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
 	ptypes "github.com/traefik/paerser/types"
@@ -57,6 +58,9 @@ func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider,
 		// logrus.Printf("got new conf..\n")
 		// fmt.Printf("%s\n", dumpJson(conf))
 		logrus.Infoln("refreshing traefik-kop configuration")
+
+		filterServices(dockerClient, &conf, config.Namespace)
+
 		if !dp.UseBindPortIP {
 			// if not using traefik's built in IP/Port detection, use our own
 			replaceIPs(dockerClient, &conf, config.BindIP)
@@ -120,6 +124,102 @@ func Start(config Config) {
 	watcher.Start()
 
 	select {} // go forever
+}
+
+func keepContainer(ns string, container types.ContainerJSON) bool {
+	containerNS := container.Config.Labels["kop.namespace"]
+	return ns == containerNS || (ns == "" && containerNS == "")
+}
+
+// filter out services by namespace
+// ns is traefik-kop's configured namespace to match against.
+func filterServices(dockerClient client.APIClient, conf *dynamic.Configuration, ns string) {
+	if conf.HTTP != nil && conf.HTTP.Services != nil {
+		for svcName := range conf.HTTP.Services {
+			container, err := findContainerByServiceName(dockerClient, "http", svcName, getRouterOfService(conf, svcName, "http"))
+			if err != nil {
+				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
+				continue
+			}
+			if !keepContainer(ns, container) {
+				logrus.Infof("skipping service %s (not in namespace %s)", svcName, ns)
+				delete(conf.HTTP.Services, svcName)
+			}
+		}
+	}
+
+	if conf.HTTP != nil && conf.HTTP.Routers != nil {
+		for routerName, router := range conf.HTTP.Routers {
+			svcName := router.Service
+			container, err := findContainerByServiceName(dockerClient, "http", svcName, routerName)
+			if err != nil {
+				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
+				continue
+			}
+			if !keepContainer(ns, container) {
+				logrus.Infof("skipping router %s (not in namespace %s)", routerName, ns)
+				delete(conf.HTTP.Routers, routerName)
+			}
+		}
+	}
+
+	if conf.TCP != nil && conf.TCP.Services != nil {
+		for svcName := range conf.TCP.Services {
+			container, err := findContainerByServiceName(dockerClient, "tcp", svcName, getRouterOfService(conf, svcName, "tcp"))
+			if err != nil {
+				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
+				continue
+			}
+			if !keepContainer(ns, container) {
+				logrus.Infof("skipping service %s (not in namespace %s)", svcName, ns)
+				delete(conf.TCP.Services, svcName)
+			}
+		}
+	}
+
+	if conf.TCP != nil && conf.TCP.Routers != nil {
+		for routerName, router := range conf.TCP.Routers {
+			svcName := router.Service
+			container, err := findContainerByServiceName(dockerClient, "tcp", svcName, routerName)
+			if err != nil {
+				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
+				continue
+			}
+			if !keepContainer(ns, container) {
+				logrus.Infof("skipping router %s (not in namespace %s)", routerName, ns)
+				delete(conf.TCP.Routers, routerName)
+			}
+		}
+	}
+
+	if conf.UDP != nil && conf.UDP.Services != nil {
+		for svcName := range conf.UDP.Services {
+			container, err := findContainerByServiceName(dockerClient, "udp", svcName, getRouterOfService(conf, svcName, "udp"))
+			if err != nil {
+				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
+				continue
+			}
+			if !keepContainer(ns, container) {
+				logrus.Warnf("service %s is not running: removing from config", svcName)
+				delete(conf.UDP.Services, svcName)
+			}
+		}
+	}
+
+	if conf.UDP != nil && conf.UDP.Routers != nil {
+		for routerName, router := range conf.UDP.Routers {
+			svcName := router.Service
+			container, err := findContainerByServiceName(dockerClient, "udp", svcName, routerName)
+			if err != nil {
+				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
+				continue
+			}
+			if !keepContainer(ns, container) {
+				logrus.Infof("skipping router %s (not in namespace %s)", routerName, ns)
+				delete(conf.UDP.Routers, routerName)
+			}
+		}
+	}
 }
 
 // replaceIPs for all service endpoints
