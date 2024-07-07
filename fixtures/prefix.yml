@@ -1,0 +1,29 @@
+
+services:
+  hello:
+    image: helloworld
+    restart: unless-stopped
+    ports:
+      - 5555:5555
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hello.rule=Host(`hello.local`)"
+      - "traefik.http.routers.hello.service=hello"
+      - "traefik.http.routers.hello.tls=true"
+      - "traefik.http.routers.hello.tls.certresolver=default"
+      - "traefik.http.services.hello.loadbalancer.server.scheme=http"
+      - "traefik.http.services.hello.loadbalancer.server.port=5555"
+
+  hello-test:
+    image: helloworld
+    restart: unless-stopped
+    ports:
+      - 5566:5566
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hello-test.rule=Host(`hello-test.local`)"
+      - "traefik.http.routers.hello-test.service=hello-test"
+      - "traefik.http.routers.hello-test.tls=true"
+      - "traefik.http.routers.hello-test.tls.certresolver=default"
+      - "traefik.http.services.hello-test.loadbalancer.server.scheme=http"
+      - "traefik.http.services.hello-test.loadbalancer.server.port=5566"
