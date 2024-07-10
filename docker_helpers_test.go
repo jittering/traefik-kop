@@ -174,22 +174,8 @@ func loadYAMLWithEnv(yaml []byte, env map[string]string) (*compose.Config, error
 	return loader.Load(buildConfigDetails(dict, env))
 }
 
-func doTest(t *testing.T, file string) *testStore {
-	p := path.Join("fixtures", file)
-	f, err := os.Open(p)
-	assert.NoError(t, err)
-
-	b, err := io.ReadAll(f)
-	assert.NoError(t, err)
-
-	composeConfig, err := loadYAML(b)
-	assert.NoError(t, err)
-
-	store := &testStore{}
-
-	// fmt.Printf("%+v\n", composeConfig)
-
-	// convert compose services to containers
+// convert compose services to containers
+func createContainers(composeConfig *compose.Config) []types.Container {
 	containers := make([]types.Container, 0)
 	for _, service := range composeConfig.Services {
 		container := types.Container{
@@ -211,9 +197,11 @@ func doTest(t *testing.T, file string) *testStore {
 		container.Ports = ports
 		containers = append(containers, container)
 	}
-	dockerAPI.containers = containers
+	return containers
+}
 
-	// convert compose services to containersJSON
+// convert compose services to containersJSON
+func createContainersJSON(composeConfig *compose.Config) map[string]types.ContainerJSON {
 	containersJSON := make(map[string]types.ContainerJSON)
 	for _, service := range composeConfig.Services {
 		containerJSON := types.ContainerJSON{
@@ -260,15 +248,39 @@ func doTest(t *testing.T, file string) *testStore {
 		}
 		containersJSON[service.Name] = containerJSON
 	}
-	dockerAPI.containersJSON = containersJSON
+	return containersJSON
+}
+
+func doTest(t *testing.T, file string, config *Config) *testStore {
+	p := path.Join("fixtures", file)
+	f, err := os.Open(p)
+	assert.NoError(t, err)
+
+	b, err := io.ReadAll(f)
+	assert.NoError(t, err)
+
+	composeConfig, err := loadYAML(b)
+	assert.NoError(t, err)
+
+	store := &testStore{}
+
+	// fmt.Printf("%+v\n", composeConfig)
+
+	dockerAPI.containers = createContainers(composeConfig)
+	dockerAPI.containersJSON = createContainersJSON(composeConfig)
 
 	dp := &docker.Provider{}
 	dp.Watch = false
 	dp.Endpoint = dockerEndpoint
 
-	config := &Config{
-		BindIP: "192.168.100.100",
+	if config == nil {
+		config = &Config{
+			BindIP: "192.168.100.100",
+		}
+	} else {
+		config.BindIP = "192.168.100.100"
 	}
+
 	handleConfigChange := createConfigHandler(*config, store, dp, dc)
 
 	routinesPool := safe.NewPool(context.Background())

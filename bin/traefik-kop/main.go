@@ -99,6 +99,11 @@ func flags() {
 				Value:   60,
 				EnvVars: []string{"KOP_POLL_INTERVAL"},
 			},
+			&cli.StringFlag{
+				Name:    "namespace",
+				Usage:   "Namespace to process containers for",
+				EnvVars: []string{"NAMESPACE"},
+			},
 			&cli.BoolFlag{
 				Name:    "verbose",
 				Usage:   "Enable debug logging",
@@ -141,6 +146,7 @@ func doStart(c *cli.Context) error {
 		DockerHost:   c.String("docker-host"),
 		DockerConfig: c.String("docker-config"),
 		PollInterval: c.Int64("poll-interval"),
+		Namespace:    c.String("namespace"),
 	}
 
 	setupLogging(c.Bool("verbose"))

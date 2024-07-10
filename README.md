@@ -46,7 +46,6 @@ providers:
 Run `traefik-kop` on your other nodes via docker-compose:
 
 ```yaml
-version: "3"
 services:
   traefik-kop:
     image: "ghcr.io/jittering/traefik-kop:latest"
@@ -100,8 +99,9 @@ GLOBAL OPTIONS:
    --docker-host value    Docker endpoint (default: "unix:///var/run/docker.sock") [$DOCKER_HOST]
    --docker-config value  Docker provider config (file must end in .yaml) [$DOCKER_CONFIG]
    --poll-interval value  Poll interval for refreshing container list (default: 60) [$KOP_POLL_INTERVAL]
-   --verbose              Enable debug logging (default: true) [$VERBOSE, $DEBUG]
-   --help, -h             show help (default: false)
+   --namespace value      Namespace to process containers for [$NAMESPACE]
+   --verbose              Enable debug logging (default: false) [$VERBOSE, $DEBUG]
+   --help, -h             show help
    --version, -V          Print the version (default: false)
 ```
 
@@ -184,6 +184,40 @@ __NOTE:__ unlike the standard traefik-docker usage, we need to expose the
 service port on the host and tell traefik to bind to *that* port (8088 in the
 example above) in the load balancer config, not the internal port (80). This is
 so that traefik can reach it over the network.
+
+## Namespaces
+
+traefik-kop has the ability to target containers via namespaces. Simply
+configure `kop` with a namespace:
+
+```yaml
+services:
+  traefik-kop:
+    image: "ghcr.io/jittering/traefik-kop:latest"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - "REDIS_ADDR=192.168.1.50:6379"
+      - "BIND_IP=192.168.1.75"
+      - "NAMESPACE=staging"
+```
+
+Then add the `kop.namespace` label to your target services, along with the usual traefik labels:
+
+```yaml
+services:
+  nginx:
+    image: "nginx:alpine"
+    restart: unless-stopped
+    ports:
+      - 8088:80
+    labels:
+      - "kop.namespace=staging"
+      - "traefik.enable=true"
+      - "traefik..."
+```
+
 
 ## Docker API
 

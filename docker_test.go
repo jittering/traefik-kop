@@ -49,7 +49,7 @@ func Test_httpServerVersion(t *testing.T) {
 }
 
 func Test_helloWorld(t *testing.T) {
-	store := doTest(t, "helloworld.yml")
+	store := doTest(t, "helloworld.yml", nil)
 
 	assert.NotNil(t, store)
 	assert.NotNil(t, store.kv)
@@ -71,7 +71,7 @@ func Test_helloWorld(t *testing.T) {
 
 func Test_helloDetect(t *testing.T) {
 	// both services get mapped to the same port (error case)
-	store := doTest(t, "hellodetect.yml")
+	store := doTest(t, "hellodetect.yml", nil)
 	assertServiceIPs(t, store, []svc{
 		{"hello-detect", "http", "http://192.168.100.100:5577"},
 		{"hello-detect2", "http", "http://192.168.100.100:5577"},
@@ -80,7 +80,7 @@ func Test_helloDetect(t *testing.T) {
 
 func Test_helloIP(t *testing.T) {
 	// override ip via labels
-	store := doTest(t, "helloip.yml")
+	store := doTest(t, "helloip.yml", nil)
 	assertServiceIPs(t, store, []svc{
 		{"helloip", "http", "http://4.4.4.4:5599"},
 		{"helloip2", "http", "http://3.3.3.3:5599"},
@@ -89,7 +89,7 @@ func Test_helloIP(t *testing.T) {
 
 func Test_helloNetwork(t *testing.T) {
 	// use ip from specific docker network
-	store := doTest(t, "network.yml")
+	store := doTest(t, "network.yml", nil)
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://10.10.10.5:5555"},
 	})
@@ -97,7 +97,7 @@ func Test_helloNetwork(t *testing.T) {
 
 func Test_TCP(t *testing.T) {
 	// tcp service
-	store := doTest(t, "gitea.yml")
+	store := doTest(t, "gitea.yml", nil)
 	assertServiceIPs(t, store, []svc{
 		{"gitea-ssh", "tcp", "192.168.100.100:20022"},
 	})
@@ -105,7 +105,7 @@ func Test_TCP(t *testing.T) {
 
 func Test_TCPMQTT(t *testing.T) {
 	// from https://github.com/jittering/traefik-kop/issues/35
-	store := doTest(t, "mqtt.yml")
+	store := doTest(t, "mqtt.yml", nil)
 	assertServiceIPs(t, store, []svc{
 		{"mqtt", "http", "http://192.168.100.100:9001"},
 		{"mqtt", "tcp", "192.168.100.100:1883"},
@@ -113,7 +113,7 @@ func Test_TCPMQTT(t *testing.T) {
 }
 
 func Test_helloWorldNoCert(t *testing.T) {
-	store := doTest(t, "hello-no-cert.yml")
+	store := doTest(t, "hello-no-cert.yml", nil)
 
 	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
 	assert.Nil(t, store.kv["traefik/http/routers/hello1/tls/certResolver"])
@@ -121,8 +121,17 @@ func Test_helloWorldNoCert(t *testing.T) {
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://192.168.100.100:5555"},
 	})
+}
 
-	// assert.Fail(t, "TODO: check for no cert")
+func Test_helloWorldIgnore(t *testing.T) {
+	store := doTest(t, "hello-ignore.yml", nil)
+	assert.Nil(t, store.kv["traefik/http/routers/hello1/service"])
+
+	store = doTest(t, "hello-ignore.yml", &Config{Namespace: "foobar"})
+	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
+	assertServiceIPs(t, store, []svc{
+		{"hello1", "http", "http://192.168.100.100:5555"},
+	})
 }
 
 func Test_samePrefix(t *testing.T) {
