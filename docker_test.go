@@ -124,3 +124,14 @@ func Test_helloWorldNoCert(t *testing.T) {
 
 	// assert.Fail(t, "TODO: check for no cert")
 }
+
+func Test_samePrefix(t *testing.T) {
+	store := doTest(t, "prefix.yml")
+
+	// Two services `hello` and `hello-test`.
+	// The former's name is a prefix of the latter. Ensure the matching does not mix them up.
+	assertServiceIPs(t, store, []svc{
+		{"hello", "http", "http://192.168.100.100:5555"},
+		{"hello-test", "http", "http://192.168.100.100:5566"},
+	})
+}

@@ -65,10 +65,10 @@ func findContainerByServiceName(dc client.APIClient, svcType string, svcName str
 			return types.ContainerJSON{}, errors.Wrapf(err, "failed to inspect container %s", c.ID)
 		}
 		// check labels
-		svcNeedle := fmt.Sprintf("traefik.%s.services.%s", svcType, svcName)
-		routerNeedle := fmt.Sprintf("traefik.%s.routers.%s", svcType, routerName)
+		svcNeedle := fmt.Sprintf("traefik.%s.services.%s.", svcType, svcName)
+		routerNeedle := fmt.Sprintf("traefik.%s.routers.%s.", svcType, routerName)
 		for k := range container.Config.Labels {
-			if strings.Contains(k, svcNeedle) || (routerName != "" && strings.Contains(k, routerNeedle)) {
+			if strings.HasPrefix(k, svcNeedle) || (routerName != "" && strings.HasPrefix(k, routerNeedle)) {
 				logrus.Debugf("found container '%s' (%s) for service '%s'", container.Name, container.ID, svcName)
 				return container, nil
 			}
