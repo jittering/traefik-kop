@@ -135,7 +135,7 @@ func Test_helloWorldIgnore(t *testing.T) {
 }
 
 func Test_samePrefix(t *testing.T) {
-	store := doTest(t, "prefix.yml")
+	store := doTest(t, "prefix.yml", nil)
 
 	// Two services `hello` and `hello-test`.
 	// The former's name is a prefix of the latter. Ensure the matching does not mix them up.

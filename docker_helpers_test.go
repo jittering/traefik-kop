@@ -255,6 +255,9 @@ func doTest(t *testing.T, file string, config *Config) *testStore {
 	p := path.Join("fixtures", file)
 	f, err := os.Open(p)
 	assert.NoError(t, err)
+	if err != nil {
+		t.FailNow()
+	}
 
 	b, err := io.ReadAll(f)
 	assert.NoError(t, err)
