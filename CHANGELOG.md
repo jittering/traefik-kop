@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.14
+
+### New Features
+
+- Allow filtering containers processed by `traefik-kop` using [namespaces](https://github.com/jittering/traefik-kop#namespaces)
+
+### Fixes
+
+- Use exact service name match when searching container labels (#39, thanks @damfleu)
+
+**Full Changelog**: https://github.com/jittering/traefik-kop/compare/v0.13.3...v0.14
+
+## v0.13.3
+
+- 16beda8 build: bump go version to 1.22
+
+## v0.13.2
+
+- 10ab916 fix: properly stringify floats when writing to redis (resolves #25)
+
 ## v0.13.1
 
 * [build: upgraded docker client dep](https://github.com/jittering/traefik-kop/commit/e7f30f3108f46cf0d174369b45f59d57398d002b)
