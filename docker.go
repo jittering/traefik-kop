@@ -122,7 +122,9 @@ func getPortBinding(container types.ContainerJSON) (string, error) {
 		if len(v) > 1 {
 			return "", errors.Errorf("found more than one host-port binding for container '%s' (%s)", container.Name, portBindingString(container.HostConfig.PortBindings))
 		}
-		return v[0].HostPort, nil
+		if v[0].HostPort != "0" {
+			return v[0].HostPort, nil
+		}
 	}
 
 	// check for a randomly set port via --publish-all

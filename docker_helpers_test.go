@@ -249,7 +249,15 @@ func createContainersJSON(composeConfig *compose.Config) map[string]types.Contai
 					HostPort: fmt.Sprintf("%d", port.Published),
 				},
 			}
-			containerJSON.NetworkSettings.Ports = containerJSON.HostConfig.PortBindings
+		}
+		containerJSON.NetworkSettings.Ports = containerJSON.HostConfig.PortBindings
+		for portID, mappings := range containerJSON.NetworkSettings.Ports {
+			for i, mapping := range mappings {
+				if mapping.HostPort == "0" {
+					// Emulating random port assignment for testing
+					containerJSON.NetworkSettings.Ports[portID][i].HostPort = "12345"
+				}
+			}
 		}
 		containersJSON[service.Name] = containerJSON
 	}
