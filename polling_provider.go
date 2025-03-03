@@ -15,10 +15,11 @@ import (
 type PollingProvider struct {
 	refreshInterval  time.Duration
 	upstreamProvider provider.Provider
+	store            TraefikStore
 }
 
-func NewPollingProvider(refreshInterval time.Duration, upstream provider.Provider) *PollingProvider {
-	return &PollingProvider{refreshInterval, upstream}
+func NewPollingProvider(refreshInterval time.Duration, upstream provider.Provider, store TraefikStore) *PollingProvider {
+	return &PollingProvider{refreshInterval, upstream, store}
 }
 
 func (p PollingProvider) Init() error {
@@ -42,6 +43,12 @@ func (p PollingProvider) Provide(configurationChan chan<- dynamic.Message, pool 
 			case <-ticker.C:
 				logrus.Debugln("tick")
 				p.upstreamProvider.Provide(configurationChan, pool)
+
+				// Try to push the last config if Redis restarted
+				err := p.store.KeepConfAlive()
+				if err != nil {
+					logrus.Warnf("Failed to push cached config: %s", err)
+				}
 
 			case <-ctx.Done():
 				ticker.Stop()

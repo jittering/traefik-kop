@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -14,6 +15,7 @@ import (
 type TraefikStore interface {
 	Store(conf dynamic.Configuration) error
 	Ping() error
+	KeepConfAlive() error
 }
 
 func collectKeys(m interface{}) []string {
@@ -33,7 +35,8 @@ type RedisStore struct {
 	Pass     string
 	DB       int
 
-	client *redis.Client
+	client     *redis.Client
+	lastConfig *dynamic.Configuration
 }
 
 func NewRedisStore(hostname string, addr string, pass string, db int) TraefikStore {
@@ -91,6 +94,38 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 	s.swapKeys(s.sk("tcp_services"))
 	s.swapKeys(s.sk("udp_routers"))
 	s.swapKeys(s.sk("udp_services"))
+
+	// Update sentinel key with current timestamp
+	s.client.Set(s.sk("kop_last_update"), time.Now().Unix(), 0)
+
+	// Store a copy of the configuration in case redis restarts
+	configCopy := conf
+	s.lastConfig = &configCopy
+
+	return nil
+}
+
+// NeedsUpdate checks if Redis needs a full configuration refresh
+// by checking for the sentinel key's existence
+func (s *RedisStore) NeedsUpdate() bool {
+	// Check if sentinel key exists
+	exists, err := s.client.Exists(s.sk("kop_last_update")).Result()
+	if err != nil {
+		logrus.Warnf("Failed to check Redis status: %s", err)
+	}
+	return !exists
+}
+
+// Push the last configuration if needed
+func (s *RedisStore) KeepConfAlive() error {
+	if s.lastConfig == nil {
+		return nil // No config to push yet
+	}
+
+	if s.NeedsUpdate() {
+		logrus.Warnln("Redis seems to have restarted and needs to be updated. Pushing last known configuration")
+		return s.Store(*s.lastConfig)
+	}
 
 	return nil
 }

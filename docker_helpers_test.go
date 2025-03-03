@@ -36,6 +36,11 @@ func (s testStore) Ping() error {
 	return nil
 }
 
+// Add a method to push the last configuration if needed
+func (s *testStore) KeepConfAlive() error {
+	return nil
+}
+
 func (s *testStore) Store(conf dynamic.Configuration) error {
 	kv, err := ConfigToKV(conf)
 	if err != nil {
