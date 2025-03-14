@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.15
+
+### Fixes
+
+- Push last config to redis in the case of a restart or failure in the cache [#46](https://github.com/jittering/traefik-kop/pull/46)
+
 ## v0.14
 
 ### New Features
