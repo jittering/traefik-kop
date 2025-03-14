@@ -111,6 +111,7 @@ func Start(config Config) {
 		NewPollingProvider(
 			time.Second*time.Duration(config.PollInterval),
 			pollingDockerProvider,
+			store,
 		),
 	})
 
