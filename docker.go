@@ -114,7 +114,9 @@ func isPortSet(container types.ContainerJSON, svcType string, svcName string) st
 // detection will fail. Instead, the user should explicitly set the port in the
 // label.
 func getPortBinding(container types.ContainerJSON) (string, error) {
+	logrus.Debugln("looking for port in host config bindings")
 	numBindings := len(container.HostConfig.PortBindings)
+	logrus.Debugf("found %d host-port bindings", numBindings)
 	if numBindings > 1 {
 		return "", errors.Errorf("found more than one host-port binding for container '%s' (%s)", container.Name, portBindingString(container.HostConfig.PortBindings))
 	}
@@ -122,12 +124,14 @@ func getPortBinding(container types.ContainerJSON) (string, error) {
 		if len(v) > 1 {
 			return "", errors.Errorf("found more than one host-port binding for container '%s' (%s)", container.Name, portBindingString(container.HostConfig.PortBindings))
 		}
-		if v[0].HostPort != "0" {
+		if v[0].HostPort != "" && v[0].HostIP == "" {
+			logrus.Debugf("found host-port binding %s", v[0].HostPort)
 			return v[0].HostPort, nil
 		}
 	}
 
 	// check for a randomly set port via --publish-all
+	logrus.Debugln("looking for port in network settings")
 	if container.NetworkSettings != nil && len(container.NetworkSettings.Ports) == 1 {
 		for _, v := range container.NetworkSettings.Ports {
 			if len(v) > 0 {

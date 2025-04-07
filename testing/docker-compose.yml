@@ -1,5 +1,3 @@
-version: "3"
-
 services:
   # Redis for use in testing, if we don't have one available locally
   redis:
@@ -124,3 +122,17 @@ services:
       traefik.tcp.routers.gitea-ssh.entrypoints: ssh
       traefik.tcp.routers.gitea-ssh.service: gitea-ssh@redis
       traefik.tcp.services.gitea-ssh.loadbalancer.server.port: 20022
+
+  ephemeral:
+    image: "nginx:alpine"
+    restart: "no"
+    ports:
+      - 80
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ephemeral.rule=Host(`ephemeral.local`)"
+      - "traefik.http.routers.ephemeral.tls=true"
+      - "traefik.http.routers.ephemeral.tls.certresolver=default"
+      # not explicitly set, let kop figure it out
+      # - "traefik.http.services.ephemeral.loadbalancer.server.scheme=http"
+      # - "traefik.http.services.ephemeral.loadbalancer.server.port=8099"
