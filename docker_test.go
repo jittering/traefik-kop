@@ -134,6 +134,14 @@ func Test_helloWorldIgnore(t *testing.T) {
 	})
 }
 
+func Test_helloWorldAutoMapped(t *testing.T) {
+	store := doTest(t, "hello-automapped.yml", nil)
+	assert.Equal(t, "hello", store.kv["traefik/http/routers/hello/service"])
+	assertServiceIPs(t, store, []svc{
+		{"hello", "http", "http://192.168.100.100:12345"},
+	})
+}
+
 func Test_samePrefix(t *testing.T) {
 	store := doTest(t, "prefix.yml", nil)
 
