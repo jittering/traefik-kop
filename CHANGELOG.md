@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.16
+
+### Fixes
+
+- Fix port detection when publishing to ephemeral ports [#48, thanks @Flamefork](https://github.com/jittering/traefik-kop/pull/48)
+
 ## v0.15
 
 ### Fixes
