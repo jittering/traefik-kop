@@ -76,6 +76,34 @@ services:
       - "traefik.http.services.helloip.loadbalancer.server.scheme=http"
       - "traefik.http.services.helloip.loadbalancer.server.port=5599"
 
+  # Test case for #52 (typo in port label, uppercase 'B')
+  hellotcp:
+    build:
+      dockerfile: ./helloworld/Dockerfile
+      context: ./
+    restart: unless-stopped
+    ports:
+      - 5555:5555
+      - 5566:5566
+      - 5577:5577
+    labels:
+      # Web server
+      - traefik.enable=true
+      - traefik.http.routers.gitlab-web.entrypoints=websecure
+      - traefik.http.routers.gitlab-web.rule=Host("gitlab.example.com")
+      - traefik.http.routers.gitlab-web.service=gitlab-web
+      - traefik.http.services.gitlab-web.loadbalancer.server.port=80
+      # Registry server
+      - traefik.http.routers.gitlab-registry.entrypoints=websecure
+      - traefik.http.routers.gitlab-registry.rule=Host("registry.example.com")
+      - traefik.http.routers.gitlab-registry.service=gitlab-registry
+      - traefik.http.services.gitlab-registry.loadbalancer.server.port=5005
+      # SSH host for git repository access
+      - traefik.tcp.routers.gitlab-ssh.rule=HostSNI("*")
+      - traefik.tcp.routers.gitlab-ssh.entrypoints=ssh-gitlab
+      - traefik.tcp.routers.gitlab-ssh.service=gitlab-ssh
+      - traefik.tcp.services.gitlab-ssh.loadBalancer.server.port=22
+
   # Basic nginx with a simple healthcheck
   nginx:
     image: "nginx:alpine"
@@ -113,11 +141,12 @@ services:
     image: gitea/gitea
     labels:
       traefik.enable: true
+      # http
       traefik.http.routers.gitea.rule: "Host(`git.domain`)"
       traefik.http.routers.gitea.entrypoints: webs
       traefik.http.routers.gitea.service: gitea@redis
       traefik.http.services.gitea.loadbalancer.server.port: 20080
-
+      # tcp
       traefik.tcp.routers.gitea-ssh.rule: "HostSNI(`*`)"
       traefik.tcp.routers.gitea-ssh.entrypoints: ssh
       traefik.tcp.routers.gitea-ssh.service: gitea-ssh@redis

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 )
 
@@ -19,5 +20,29 @@ func main() {
 		io.WriteString(w, "Hello from port 5566")
 	})
 	fmt.Println("listening on port 5566")
-	http.ListenAndServe(":5566", mux2)
+	go http.ListenAndServe(":5566", mux2)
+
+	// TCP listener on port 5577
+	go func() {
+		ln, err := net.Listen("tcp", ":5577")
+		if err != nil {
+			fmt.Println("Error starting TCP listener:", err)
+			return
+		}
+		fmt.Println("listening on TCP port 5577")
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				fmt.Println("Error accepting connection:", err)
+				continue
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				c.Write([]byte("hello world\n"))
+			}(conn)
+		}
+	}()
+
+	// Block forever
+	select {}
 }
