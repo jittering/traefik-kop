@@ -81,6 +81,13 @@ func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string
 			dc.details[c.ID] = container
 		}
 
+		// normalize labels
+		labels := make(map[string]string, len(container.Config.Labels))
+		for k, v := range container.Config.Labels {
+			labels[strings.ToLower(k)] = v
+		}
+		container.Config.Labels = labels
+
 		// check labels
 		svcNeedle := fmt.Sprintf("traefik.%s.services.%s.", svcType, svcName)
 		routerNeedle := fmt.Sprintf("traefik.%s.routers.%s.", svcType, routerName)
