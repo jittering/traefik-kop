@@ -1,0 +1,32 @@
+# Test case for issue #51
+# https://github.com/jittering/traefik-kop/issues/51
+#
+# kop fails to start if outbound IP cannot be detected. uncomment BIND_IP to resolve.
+services:
+  kop:
+    build: "../../"
+    restart: unless-stopped
+    environment:
+      - "DEBUG=1"
+      - "REDIS_ADDR=redis:6379"
+      # - "BIND_IP=192.168.1.17"
+    depends_on:
+      - redis
+    networks:
+      - kop_test
+      - default
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  redis:
+    image: redis:7-alpine
+    networks:
+      - kop_test
+      - default
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+
+networks:
+  default:
+    internal: true
+  kop_test:
+    internal: true

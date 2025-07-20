@@ -9,7 +9,7 @@ build-docker: build-linux
 	docker build --platform linux/amd64 -t ${PROJECT}:latest .
 
 build-linux:
-	GOOS=linux go build ./bin/traefik-kop
+	GOOS=linux go build -o traefik-kop-linux ./bin/traefik-kop
 
 build:
 	go build ./bin/traefik-kop
