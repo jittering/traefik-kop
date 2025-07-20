@@ -149,6 +149,10 @@ func doStart(c *cli.Context) error {
 		Namespace:    c.String("namespace"),
 	}
 
+	if config.BindIP == "" {
+		log.Fatal("Bind IP cannot be empty")
+	}
+
 	setupLogging(c.Bool("verbose"))
 	logrus.Debugf("using traefik-kop config: %s", fmt.Sprintf("%+v", config))
 
@@ -166,6 +170,9 @@ func getHostname() string {
 
 func getDefaultIP() string {
 	ip := GetOutboundIP()
+	if ip == nil {
+		return ""
+	}
 	return ip.String()
 }
 
@@ -174,7 +181,8 @@ func getDefaultIP() string {
 func GetOutboundIP() net.IP {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		log.Fatal(err)
+		log.Warnf("failed to detect outbound IP: %s", err)
+		return nil
 	}
 	defer conn.Close()
 
