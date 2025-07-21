@@ -82,6 +82,12 @@ func flags() {
 				Value:   0,
 				EnvVars: []string{"REDIS_DB"},
 			},
+			&cli.IntFlag{
+				Name:    "redis-ttl",
+				Usage:   "Redis TTL (in seconds)",
+				Value:   0,
+				EnvVars: []string{"REDIS_TTL"},
+			},
 			&cli.StringFlag{
 				Name:    "docker-host",
 				Usage:   "Docker endpoint",
