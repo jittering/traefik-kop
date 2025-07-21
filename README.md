@@ -96,6 +96,7 @@ GLOBAL OPTIONS:
    --redis-addr value     Redis address (default: "127.0.0.1:6379") [$REDIS_ADDR]
    --redis-pass value     Redis password (if needed) [$REDIS_PASS]
    --redis-db value       Redis DB number (default: 0) [$REDIS_DB]
+   --redis-ttl value      Redis TTL (in seconds) (default: 0) [$REDIS_TTL]
    --docker-host value    Docker endpoint (default: "unix:///var/run/docker.sock") [$DOCKER_HOST]
    --docker-config value  Docker provider config (file must end in .yaml) [$DOCKER_CONFIG]
    --poll-interval value  Poll interval for refreshing container list (default: 60) [$KOP_POLL_INTERVAL]
@@ -287,6 +288,6 @@ docker run -it --rm -v "$(pwd)":/usr/local/src/your-app \
 
 ## License
 
-traefik-kop: MIT, (c) 2022, Pixelcop Research, Inc.
+traefik-kop: MIT, (c) 2015, Pixelcop Research, Inc.
 
-traefik: MIT, (c) 2016-2020 Containous SAS; 2020-2022 Traefik Labs
+traefik: MIT, (c) 2016-2025 Containous SAS; 2020-2022 Traefik Labs

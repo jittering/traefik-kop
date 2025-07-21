@@ -18,6 +18,7 @@ type Config struct {
 	Hostname     string
 	BindIP       string
 	Addr         string
+	RedisTTL     int
 	Pass         string
 	DB           int
 	PollInterval int64

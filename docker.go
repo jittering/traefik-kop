@@ -2,6 +2,7 @@ package traefikkop
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -132,15 +133,15 @@ func getPortBinding(container types.ContainerJSON) (string, error) {
 		if len(v) > 1 {
 			return "", errors.Errorf("found more than one host-port binding for container '%s' (%s)", container.Name, portBindingString(container.HostConfig.PortBindings))
 		}
-		if v[0].HostPort != "" && v[0].HostIP == "" {
+		if v[0].HostPort != "" {
 			logrus.Debugf("found host-port binding %s", v[0].HostPort)
 			return v[0].HostPort, nil
 		}
 	}
 
 	// check for a randomly set port via --publish-all
-	logrus.Debugln("looking for port in network settings")
 	if container.NetworkSettings != nil && len(container.NetworkSettings.Ports) == 1 {
+		logrus.Debugln("looking for [randomly set] port in network settings")
 		for _, v := range container.NetworkSettings.Ports {
 			if len(v) > 0 {
 				port := v[0].HostPort
@@ -152,9 +153,23 @@ func getPortBinding(container types.ContainerJSON) (string, error) {
 				}
 			}
 		}
+	} else {
+		logrus.Debug("skipping network settings check, no ports found")
 	}
 
 	return "", errors.Errorf("no host-port binding found for container '%s'", container.Name)
+}
+
+func logJSON(name string, v interface{}) {
+	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+		data, err := json.MarshalIndent(v, "", "  ")
+		if err != nil {
+			logrus.Debug("failed to marshal: ", err)
+		} else {
+			logrus.Debugf("json dump of %s", name)
+			fmt.Println(string(data))
+		}
+	}
 }
 
 // Convert host:container port binding map to a compact printable string
