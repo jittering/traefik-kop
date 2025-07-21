@@ -30,7 +30,7 @@ type fakeDockerClient struct {
 	err        error
 }
 
-func (c *fakeDockerClient) ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error) {
+func (c *fakeDockerClient) ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
 	return c.containers, nil
 }
 

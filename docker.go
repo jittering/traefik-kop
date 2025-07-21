@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
@@ -63,7 +64,7 @@ func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string
 
 	if dc.list == nil {
 		var err error
-		dc.list, err = dc.client.ContainerList(context.Background(), types.ContainerListOptions{})
+		dc.list, err = dc.client.ContainerList(context.Background(), container.ListOptions{})
 		if err != nil {
 			return types.ContainerJSON{}, errors.Wrap(err, "failed to list containers")
 		}

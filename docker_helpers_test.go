@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"sort"
 	"sync"
 	"testing"
 
@@ -69,7 +70,7 @@ func (d DockerAPIStub) Events(ctx context.Context, options types.EventsOptions) 
 	return nil, nil
 }
 
-func (d DockerAPIStub) ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error) {
+func (d DockerAPIStub) ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
 	// Implement your logic here
 	fmt.Println("ContainerList")
 	return d.containers, nil
@@ -120,7 +121,7 @@ func createHTTPServer() (*fiber.App, string) {
 	})
 
 	app.Get("/v1.24/containers/json", func(c *fiber.Ctx) error {
-		containers, err := dockerAPI.ContainerList(c.Context(), types.ContainerListOptions{})
+		containers, err := dockerAPI.ContainerList(c.Context(), container.ListOptions{})
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -320,9 +321,14 @@ func doTest(t *testing.T, file string, config *Config) *testStore {
 
 	wgChanges.Wait()
 
-	// print the kv store
-	for k, v := range store.kv {
-		fmt.Printf("%s: %+v\n", k, v)
+	// print the kv store with sorted keys
+	keys := make([]string, 0, len(store.kv))
+	for k := range store.kv {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		fmt.Printf("%s: %+v\n", k, store.kv[k])
 	}
 
 	return store
