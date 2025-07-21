@@ -1,15 +1,16 @@
 package traefikkop
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
-	"gopkg.in/redis.v5"
 )
 
 type TraefikStore interface {
@@ -58,7 +59,7 @@ func NewRedisStore(hostname string, addr string, pass string, db int) TraefikSto
 }
 
 func (s *RedisStore) Ping() error {
-	return s.client.Ping().Err()
+	return s.client.Ping(context.Background()).Err()
 }
 
 // sk returns the 'set key' for keeping track of our services/routers/middlewares
@@ -83,7 +84,7 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 	}
 	for k, v := range kv {
 		logrus.Debugf("writing %s = %s", k, v)
-		s.client.Set(k, v, 0)
+		s.client.Set(context.Background(), k, v, 0)
 	}
 
 	s.swapKeys(s.sk("http_middlewares"))
@@ -96,7 +97,7 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 	s.swapKeys(s.sk("udp_services"))
 
 	// Update sentinel key with current timestamp
-	s.client.Set(s.sk("kop_last_update"), time.Now().Unix(), 0)
+	s.client.Set(context.Background(), s.sk("kop_last_update"), time.Now().Unix(), 0)
 
 	// Store a copy of the configuration in case redis restarts
 	configCopy := conf
@@ -109,11 +110,11 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 // by checking for the sentinel key's existence
 func (s *RedisStore) NeedsUpdate() bool {
 	// Check if sentinel key exists
-	exists, err := s.client.Exists(s.sk("kop_last_update")).Result()
+	exists, err := s.client.Exists(context.Background(), s.sk("kop_last_update")).Result()
 	if err != nil {
 		logrus.Warnf("Failed to check Redis status: %s", err)
 	}
-	return !exists
+	return exists > 0
 }
 
 // Push the last configuration if needed
@@ -132,10 +133,10 @@ func (s *RedisStore) KeepConfAlive() error {
 
 func (s *RedisStore) swapKeys(setkey string) error {
 	// store router name list by renaming
-	err := s.client.Rename(setkey+"_new", setkey).Err()
+	err := s.client.Rename(context.Background(), setkey+"_new", setkey).Err()
 	if err != nil {
 		if strings.Contains(err.Error(), "no such key") {
-			s.client.Unlink(setkey)
+			s.client.Unlink(context.Background(), setkey)
 			return nil
 		}
 		return errors.Wrap(err, "rename failed")
@@ -161,11 +162,11 @@ func (s *RedisStore) removeKeys(setkey string, keys []string) error {
 	for _, removeKey := range keys {
 		keyPath := s.k(setkey, removeKey) + "/*"
 		logrus.Debugf("removing keys matching %s", keyPath)
-		res, err := s.client.Keys(keyPath).Result()
+		res, err := s.client.Keys(context.Background(), keyPath).Result()
 		if err != nil {
 			return errors.Wrap(err, "fetch failed")
 		}
-		if err := s.client.Unlink(res...).Err(); err != nil {
+		if err := s.client.Unlink(context.Background(), res...).Err(); err != nil {
 			return errors.Wrap(err, "unlink failed")
 		}
 	}
@@ -177,7 +178,7 @@ func (s *RedisStore) removeOldKeys(m interface{}, setname string) error {
 	// store new keys in temp set
 	newkeys := collectKeys(m)
 	if len(newkeys) == 0 {
-		res, err := s.client.SMembers(setkey).Result()
+		res, err := s.client.SMembers(context.Background(), setkey).Result()
 		if err != nil {
 			return errors.Wrap(err, "fetch failed")
 		}
@@ -185,13 +186,13 @@ func (s *RedisStore) removeOldKeys(m interface{}, setname string) error {
 
 	} else {
 		// make a diff and remove
-		err := s.client.SAdd(setkey+"_new", mkslice(newkeys)...).Err()
+		err := s.client.SAdd(context.Background(), setkey+"_new", mkslice(newkeys)...).Err()
 		if err != nil {
 			return errors.Wrap(err, "add failed")
 		}
 
 		// diff the existing keys with the new ones
-		res, err := s.client.SDiff(setkey, setkey+"_new").Result()
+		res, err := s.client.SDiff(context.Background(), setkey, setkey+"_new").Result()
 		if err != nil {
 			return errors.Wrap(err, "diff failed")
 		}
