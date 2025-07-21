@@ -83,12 +83,7 @@ func createTestClient(labels map[string]string) *fakeDockerClient {
 }
 
 func Test_replacePorts(t *testing.T) {
-
-	portMap := nat.PortMap{
-		"80": []nat.PortBinding{
-			{HostIP: "172.20.0.2", HostPort: "8888"},
-		},
-	}
+	log.Debug("Testing replacePorts")
 
 	portLabel := "traefik.http.services.nginx.loadbalancer.server.port"
 	dc := createTestClient(map[string]string{
@@ -105,17 +100,27 @@ func Test_replacePorts(t *testing.T) {
 	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "172.20.0.2:80"))
 
 	// explicit label present
+	log.Debug("explicit label present")
 	replaceIPs(fc, cfg, "4.4.4.4")
 	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:8888"), "URL '%s' should end with '%s'", cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:8888")
 
 	// without label but no port binding
+	log.Debug("without label but no port binding")
 	delete(dc.container.Config.Labels, portLabel)
 	json.Unmarshal([]byte(NGINX_CONF_JSON), cfg)
 	replaceIPs(fc, cfg, "4.4.4.4")
 	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:80"))
 
 	// with port binding
+	log.Debug("with port binding")
+	portMap := nat.PortMap{
+		"80": []nat.PortBinding{
+			{HostIP: "172.20.0.2", HostPort: "8888"},
+		},
+	}
+
 	dc.container.HostConfig.PortBindings = portMap
+	logJSON("container", dc.container)
 	json.Unmarshal([]byte(NGINX_CONF_JSON), cfg)
 	replaceIPs(fc, cfg, "4.4.4.4")
 	require.False(t, strings.HasSuffix(cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:80"))
