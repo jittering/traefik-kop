@@ -49,7 +49,7 @@ func Test_httpServerVersion(t *testing.T) {
 }
 
 func Test_helloWorld(t *testing.T) {
-	store := doTest(t, "helloworld.yml", nil)
+	store := processFile(t, "helloworld.yml")
 
 	assert.NotNil(t, store)
 	assert.NotNil(t, store.kv)
@@ -71,7 +71,7 @@ func Test_helloWorld(t *testing.T) {
 
 func Test_helloDetect(t *testing.T) {
 	// both services get mapped to the same port (error case)
-	store := doTest(t, "hellodetect.yml", nil)
+	store := processFile(t, "hellodetect.yml")
 	assertServiceIPs(t, store, []svc{
 		{"hello-detect", "http", "http://192.168.100.100:5577"},
 		{"hello-detect2", "http", "http://192.168.100.100:5577"},
@@ -80,7 +80,7 @@ func Test_helloDetect(t *testing.T) {
 
 func Test_helloIP(t *testing.T) {
 	// override ip via labels
-	store := doTest(t, "helloip.yml", nil)
+	store := processFile(t, "helloip.yml")
 	assertServiceIPs(t, store, []svc{
 		{"helloip", "http", "http://4.4.4.4:5599"},
 		{"helloip2", "http", "http://3.3.3.3:5599"},
@@ -89,7 +89,7 @@ func Test_helloIP(t *testing.T) {
 
 func Test_helloNetwork(t *testing.T) {
 	// use ip from specific docker network
-	store := doTest(t, "network.yml", nil)
+	store := processFile(t, "network.yml")
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://10.10.10.5:5555"},
 	})
@@ -97,7 +97,7 @@ func Test_helloNetwork(t *testing.T) {
 
 func Test_TCP(t *testing.T) {
 	// tcp service
-	store := doTest(t, "gitea.yml", nil)
+	store := processFile(t, "gitea.yml")
 	assertServiceIPs(t, store, []svc{
 		{"gitea-ssh", "tcp", "192.168.100.100:20022"},
 	})
@@ -105,7 +105,7 @@ func Test_TCP(t *testing.T) {
 
 func Test_TCPMQTT(t *testing.T) {
 	// from https://github.com/jittering/traefik-kop/issues/35
-	store := doTest(t, "mqtt.yml", nil)
+	store := processFile(t, "mqtt.yml")
 	assertServiceIPs(t, store, []svc{
 		{"mqtt", "http", "http://192.168.100.100:9001"},
 		{"mqtt", "tcp", "192.168.100.100:1883"},
@@ -113,7 +113,7 @@ func Test_TCPMQTT(t *testing.T) {
 }
 
 func Test_helloWorldNoCert(t *testing.T) {
-	store := doTest(t, "hello-no-cert.yml", nil)
+	store := processFile(t, "hello-no-cert.yml")
 
 	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
 	assert.Nil(t, store.kv["traefik/http/routers/hello1/tls/certResolver"])
@@ -124,10 +124,10 @@ func Test_helloWorldNoCert(t *testing.T) {
 }
 
 func Test_helloWorldIgnore(t *testing.T) {
-	store := doTest(t, "hello-ignore.yml", nil)
+	store := processFile(t, "hello-ignore.yml")
 	assert.Nil(t, store.kv["traefik/http/routers/hello1/service"])
 
-	store = doTest(t, "hello-ignore.yml", &Config{Namespace: "foobar"})
+	store = processFileWithConfig(t, nil, &Config{Namespace: "foobar"}, "hello-ignore.yml")
 	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://192.168.100.100:5555"},
@@ -135,7 +135,7 @@ func Test_helloWorldIgnore(t *testing.T) {
 }
 
 func Test_helloWorldAutoMapped(t *testing.T) {
-	store := doTest(t, "hello-automapped.yml", nil)
+	store := processFile(t, "hello-automapped.yml")
 	assert.Equal(t, "hello", store.kv["traefik/http/routers/hello/service"])
 	assertServiceIPs(t, store, []svc{
 		{"hello", "http", "http://192.168.100.100:12345"},
@@ -143,7 +143,7 @@ func Test_helloWorldAutoMapped(t *testing.T) {
 }
 
 func Test_samePrefix(t *testing.T) {
-	store := doTest(t, "prefix.yml", nil)
+	store := processFile(t, "prefix.yml")
 
 	// Two services `hello` and `hello-test`.
 	// The former's name is a prefix of the latter. Ensure the matching does not mix them up.
@@ -151,4 +151,23 @@ func Test_samePrefix(t *testing.T) {
 		{"hello", "http", "http://192.168.100.100:5555"},
 		{"hello-test", "http", "http://192.168.100.100:5566"},
 	})
+}
+
+// Should be able to merge loadbalanced services
+func Test_loadbalance(t *testing.T) {
+	store := processFile(t, "loadbalance1.yml", "loadbalance2.yml")
+
+	url1 := store.kv["traefik/http/services/lbtest/loadBalancer/servers/0/url"]
+	url2 := store.kv["traefik/http/services/lbtest/loadBalancer/servers/1/url"]
+
+	assert.NotNil(t, url1)
+	assert.NotNil(t, url2)
+
+	urls := []string{
+		url1.(string),
+		url2.(string),
+	}
+
+	assert.Contains(t, urls, "http://192.168.100.100:5555")
+	assert.Contains(t, urls, "http://192.168.100.100:5556")
 }

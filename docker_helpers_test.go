@@ -22,6 +22,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/ryanuber/go-glob"
 	"github.com/stretchr/testify/assert"
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
 	"github.com/traefik/traefik/v2/pkg/provider/docker"
@@ -40,6 +41,37 @@ func (s testStore) Ping() error {
 // Add a method to push the last configuration if needed
 func (s *testStore) KeepConfAlive() error {
 	return nil
+}
+
+func (s *testStore) Get(key string) (string, error) {
+	if s.kv == nil {
+		return "", nil
+	}
+	val, ok := s.kv[key]
+	if !ok {
+		return "", nil
+	}
+	if val == nil {
+		return "", nil
+	}
+	strVal, ok := val.(string)
+	if !ok {
+		return fmt.Sprintf("%s", val), nil
+	}
+	return strVal, nil
+}
+
+func (s *testStore) Gets(key string) (map[string]string, error) {
+	if s.kv == nil {
+		return nil, nil
+	}
+	vals := make(map[string]string)
+	for k, _ := range s.kv {
+		if glob.Glob(key, k) {
+			vals[k], _ = s.Get(k)
+		}
+	}
+	return vals, nil
 }
 
 func (s *testStore) Store(conf dynamic.Configuration) error {
@@ -265,7 +297,15 @@ func createContainersJSON(composeConfig *compose.Config) map[string]types.Contai
 	return containersJSON
 }
 
-func doTest(t *testing.T, file string, config *Config) *testStore {
+func processFile(t *testing.T, file ...string) *testStore {
+	store := &testStore{}
+	for _, f := range file {
+		processFileWithConfig(t, store, nil, f)
+	}
+	return store
+}
+
+func processFileWithConfig(t *testing.T, store *testStore, config *Config, file string) *testStore {
 	p := path.Join("fixtures", file)
 	f, err := os.Open(p)
 	assert.NoError(t, err)
@@ -279,7 +319,9 @@ func doTest(t *testing.T, file string, config *Config) *testStore {
 	composeConfig, err := loadYAML(b)
 	assert.NoError(t, err)
 
-	store := &testStore{}
+	if store == nil {
+		store = &testStore{}
+	}
 
 	// fmt.Printf("%+v\n", composeConfig)
 

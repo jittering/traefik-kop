@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
@@ -71,6 +72,9 @@ func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider,
 			// if not using traefik's built in IP/Port detection, use our own
 			replaceIPs(dc, &conf, config.BindIP)
 		}
+
+		mergeLoadBalancers(dc, &conf, store)
+
 		err := store.Store(conf)
 		if err != nil {
 			panic(err)
@@ -464,4 +468,113 @@ func getKopOverrideBinding(dc *dockerCache, conf *dynamic.Configuration, svcType
 	}
 
 	return hostIP, false
+}
+
+// mergeLoadBalancers merges load balancer servers for all protocols (http, tcp, udp)
+func mergeLoadBalancers(dc *dockerCache, conf *dynamic.Configuration, store TraefikStore) {
+	mergeGenericLoadBalancers("http", conf.HTTP, store, func(server interface{}) string {
+		if s, ok := server.(dynamic.Server); ok {
+			return s.URL
+		}
+		return ""
+	}, func(url string) interface{} {
+		return dynamic.Server{URL: url}
+	})
+
+	mergeGenericLoadBalancers("tcp", conf.TCP, store, func(server interface{}) string {
+		if s, ok := server.(dynamic.TCPServer); ok {
+			return s.Address
+		}
+		return ""
+	}, func(addr string) interface{} {
+		return dynamic.TCPServer{Address: addr}
+	})
+
+	mergeGenericLoadBalancers("udp", conf.UDP, store, func(server interface{}) string {
+		if s, ok := server.(dynamic.UDPServer); ok {
+			return s.Address
+		}
+		return ""
+	}, func(addr string) interface{} {
+		return dynamic.UDPServer{Address: addr}
+	})
+}
+
+// mergeGenericLoadBalancers merges servers for a given protocol using generic logic
+func mergeGenericLoadBalancers(
+	svcType string,
+	svcConf interface{},
+	store TraefikStore,
+	getKey func(interface{}) string,
+	makeServer func(string) interface{},
+) {
+	if svcConf == nil {
+		return
+	}
+
+	// Use reflection to access Services map
+	v := reflect.ValueOf(svcConf)
+	servicesField := v.Elem().FieldByName("Services")
+	if !servicesField.IsValid() || servicesField.IsNil() {
+		return
+	}
+
+	for _, key := range servicesField.MapKeys() {
+		svcName := key.String()
+
+		// Get existing keys from store
+		var storeKey string
+		switch svcType {
+		case "http":
+			storeKey = fmt.Sprintf("traefik/http/services/%s/loadBalancer/servers/*/url", stripDocker(svcName))
+		case "tcp", "udp":
+			storeKey = fmt.Sprintf("traefik/%s/services/%s/loadBalancer/servers/*/address", svcType, stripDocker(svcName))
+		}
+		existingKeys, err := store.Gets(storeKey)
+		if err != nil {
+			logrus.Warnf("failed to get existing servers for service %s: %s", svcName, err)
+			continue
+		}
+		if len(existingKeys) == 0 {
+			logrus.Debugf("no existing servers found for service %s, skip merge", svcName)
+			continue
+		}
+
+		// collect list of urls or addresses
+		keySet := make(map[string]struct{})
+		for _, k := range existingKeys {
+			keySet[k] = struct{}{}
+		}
+
+		// Add our config hosts
+		svc := servicesField.MapIndex(key)
+		if !svc.IsValid() || svc.IsNil() {
+			continue
+		}
+		lbField := svc.Elem().FieldByName("LoadBalancer")
+		if !lbField.IsValid() || lbField.IsNil() {
+			continue
+		}
+		serversField := lbField.Elem().FieldByName("Servers")
+		if !serversField.IsValid() {
+			continue
+		}
+		for i := 0; i < serversField.Len(); i++ {
+			server := serversField.Index(i).Interface()
+			k := getKey(server)
+			if k != "" {
+				keySet[k] = struct{}{}
+			}
+		}
+
+		// Create merged list
+		newServers := reflect.MakeSlice(serversField.Type(), 0, len(keySet))
+		for k := range keySet {
+			newServers = reflect.Append(newServers, reflect.ValueOf(makeServer(k)))
+		}
+		serversField.Set(newServers)
+		if newServers.Len() > len(existingKeys) {
+			logrus.Debugf("merged %d %s servers into service %s", newServers.Len()-len(existingKeys), svcType, svcName)
+		}
+	}
 }

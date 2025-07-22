@@ -184,3 +184,9 @@ func portBindingString(bindings nat.PortMap) string {
 	}
 	return strings.Join(s, ", ")
 }
+
+// stripDocker removes the @docker suffix from a service name.
+// This is used to normalize service names when storing or retrieving them from the store.
+func stripDocker(svcName string) string {
+	return strings.TrimSuffix(svcName, "@docker")
+}
