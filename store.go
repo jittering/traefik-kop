@@ -190,7 +190,7 @@ func (s *RedisStore) swapKeys(setkey string) error {
 // e.g., traefik/http/routers/nginx@docker
 func (s RedisStore) k(sk, b string) string {
 	k := strings.ReplaceAll(fmt.Sprintf("traefik_%s", sk), "_", "/")
-	b = strings.TrimSuffix(b, "@docker")
+	b = stripDocker(b)
 	return fmt.Sprintf("%s/%s", k, b)
 }
 

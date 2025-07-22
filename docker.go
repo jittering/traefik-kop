@@ -60,8 +60,8 @@ func getClientOpts(endpoint string) ([]client.Opt, error) {
 
 // looks up the docker container by finding the matching service or router traefik label
 func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string, routerName string) (types.ContainerJSON, error) {
-	svcName = strings.TrimSuffix(svcName, "@docker")
-	routerName = strings.TrimSuffix(routerName, "@docker")
+	svcName = stripDocker(svcName)
+	routerName = stripDocker(routerName)
 
 	if dc.list == nil {
 		var err error
@@ -106,7 +106,7 @@ func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string
 
 // Check if the port is explicitly set via label
 func isPortSet(container types.ContainerJSON, svcType string, svcName string) string {
-	svcName = strings.TrimSuffix(svcName, "@docker")
+	svcName = stripDocker(svcName)
 	needle := fmt.Sprintf("traefik.%s.services.%s.loadbalancer.server.port", svcType, svcName)
 	return container.Config.Labels[needle]
 }

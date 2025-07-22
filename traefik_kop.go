@@ -345,7 +345,7 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 // router. In this case, we need to use the router name to find the traefik
 // labels to identify the container.
 func getRouterOfService(conf *dynamic.Configuration, svcName string, svcType string) string {
-	svcName = strings.TrimSuffix(svcName, "@docker")
+	svcName = stripDocker(svcName)
 	name := ""
 
 	if svcType == "http" {
@@ -455,7 +455,7 @@ func getKopOverrideBinding(dc *dockerCache, conf *dynamic.Configuration, svcType
 		return hostIP, false
 	}
 
-	svcName = strings.TrimSuffix(svcName, "@docker")
+	svcName = stripDocker(svcName)
 	svcNeedle := fmt.Sprintf("kop.%s.bind.ip", svcName)
 	if ip := container.Config.Labels[svcNeedle]; ip != "" {
 		logrus.Debugf("found label %s with IP '%s' for service %s", svcNeedle, ip, svcName)
