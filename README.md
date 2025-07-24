@@ -143,6 +143,20 @@ Labels can be one of two keys:
 For a container with a single exposed service, or where all services use
 the same IP, the latter is sufficient.
 
+### Load Balancer Merging
+
+If your service is running on multiple nodes and load balanced by traefik, you can enable
+merging of load balancers by adding the following label to your container:
+
+- `kop.merge-lbs=true`
+
+When set, kop will check in redis for an existing definition and, if found, append it's service
+address to the ones already present.
+
+This setting is off by default as there are some cases where it could cause an issue, such as if
+your node's IP changes. In this case, the dead IP would be left in place and the new IP would get
+added to the list, causing some of your traffic to fail.
+
 ### Container Networking
 
 If your container is configured to use a network-routable IP address via an
