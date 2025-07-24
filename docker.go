@@ -22,6 +22,7 @@ type dockerCache struct {
 	client  client.APIClient
 	list    []types.Container
 	details map[string]types.ContainerJSON
+	expires time.Time
 }
 
 // Must be 0 for unix socket?
@@ -58,16 +59,20 @@ func getClientOpts(endpoint string) ([]client.Opt, error) {
 	return opts, nil
 }
 
-// looks up the docker container by finding the matching service or router traefik label
-func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string, routerName string) (types.ContainerJSON, error) {
-	svcName = strings.TrimSuffix(svcName, "@docker")
-	routerName = strings.TrimSuffix(routerName, "@docker")
+// populate the cache with the current list of running containers and their details.
+//
+// Cache expires after 30 seconds.
+func (dc *dockerCache) populate() error {
+	if time.Now().After(dc.expires) {
+		dc.list = nil
+		dc.details = make(map[string]types.ContainerJSON)
+	}
 
 	if dc.list == nil {
 		var err error
 		dc.list, err = dc.client.ContainerList(context.Background(), container.ListOptions{})
 		if err != nil {
-			return types.ContainerJSON{}, errors.Wrap(err, "failed to list containers")
+			return errors.Wrap(err, "failed to list containers")
 		}
 	}
 
@@ -78,7 +83,7 @@ func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string
 			var err error
 			container, err = dc.client.ContainerInspect(context.Background(), c.ID)
 			if err != nil {
-				return types.ContainerJSON{}, errors.Wrapf(err, "failed to inspect container %s", c.ID)
+				return errors.Wrapf(err, "failed to inspect container %s", c.ID)
 			}
 			dc.details[c.ID] = container
 		}
@@ -89,7 +94,24 @@ func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string
 			labels[strings.ToLower(k)] = v
 		}
 		container.Config.Labels = labels
+	}
 
+	dc.expires = time.Now().Add(5 * time.Second) // cache expires in 30 seconds
+
+	return nil
+}
+
+// looks up the docker container by finding the matching service or router traefik label
+func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string, routerName string) (types.ContainerJSON, error) {
+	err := dc.populate()
+	if err != nil {
+		return types.ContainerJSON{}, err
+	}
+
+	svcName = stripDocker(svcName)
+	routerName = stripDocker(routerName)
+
+	for _, container := range dc.details {
 		// check labels
 		svcNeedle := fmt.Sprintf("traefik.%s.services.%s.", svcType, svcName)
 		routerNeedle := fmt.Sprintf("traefik.%s.routers.%s.", svcType, routerName)
@@ -106,7 +128,7 @@ func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string
 
 // Check if the port is explicitly set via label
 func isPortSet(container types.ContainerJSON, svcType string, svcName string) string {
-	svcName = strings.TrimSuffix(svcName, "@docker")
+	svcName = stripDocker(svcName)
 	needle := fmt.Sprintf("traefik.%s.services.%s.loadbalancer.server.port", svcType, svcName)
 	return container.Config.Labels[needle]
 }
@@ -183,4 +205,10 @@ func portBindingString(bindings nat.PortMap) string {
 		}
 	}
 	return strings.Join(s, ", ")
+}
+
+// stripDocker removes the @docker suffix from a service name.
+// This is used to normalize service names when storing or retrieving them from the store.
+func stripDocker(svcName string) string {
+	return strings.TrimSuffix(svcName, "@docker")
 }

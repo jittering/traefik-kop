@@ -87,7 +87,7 @@ func walk(kv *KV, path string, obj interface{}, pos string) {
 			}
 			strKey := key.String()
 			if reKeyName.MatchString(path) {
-				strKey = strings.TrimSuffix(strKey, "@docker")
+				strKey = stripDocker(strKey)
 			}
 			walk(kv, path+"/"+strKey, val.Interface(), strKey)
 		}

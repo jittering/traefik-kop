@@ -15,6 +15,8 @@ import (
 
 type TraefikStore interface {
 	Store(conf dynamic.Configuration) error
+	Get(key string) (string, error)
+	Gets(key string) (map[string]string, error)
 	Ping() error
 	KeepConfAlive() error
 }
@@ -75,6 +77,36 @@ func (s RedisStore) exp() time.Duration {
 		return time.Duration(s.TTL) * time.Second
 	}
 	return 0 // no expiration
+}
+
+func (s *RedisStore) Get(key string) (string, error) {
+	val, err := s.client.Get(context.Background(), key).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return "", nil // key does not exist
+		}
+		return "", errors.Wrapf(err, "failed to get key %s", key)
+	}
+	return val, nil
+}
+
+func (s *RedisStore) Gets(key string) (map[string]string, error) {
+	keys, err := s.client.Keys(context.Background(), key).Result()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get keys matching %s", key)
+	}
+	if len(keys) == 0 {
+		return nil, nil // no keys found
+	}
+	vals := make(map[string]string)
+	for _, k := range keys {
+		val, err := s.Get(k)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get value for key %s", k)
+		}
+		vals[k] = val
+	}
+	return vals, nil
 }
 
 func (s *RedisStore) Store(conf dynamic.Configuration) error {
@@ -158,7 +190,7 @@ func (s *RedisStore) swapKeys(setkey string) error {
 // e.g., traefik/http/routers/nginx@docker
 func (s RedisStore) k(sk, b string) string {
 	k := strings.ReplaceAll(fmt.Sprintf("traefik_%s", sk), "_", "/")
-	b = strings.TrimSuffix(b, "@docker")
+	b = stripDocker(b)
 	return fmt.Sprintf("%s/%s", k, b)
 }
 

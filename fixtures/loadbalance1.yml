@@ -1,0 +1,14 @@
+services:
+  lb1:
+    image: helloworld
+    build: "../helloworld"
+    restart: "no"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lb1.rule=Host(`lb.local`)"
+      - "traefik.http.routers.lb1.service=lbtest"
+      - "traefik.http.routers.lb1.tls=true"
+      - "traefik.http.routers.lb1.tls.certresolver=default"
+      - "traefik.http.services.lbtest.loadbalancer.server.scheme=http"
+      - "traefik.http.services.lbtest.loadbalancer.server.port=5555"
+      - "traefik.merge-lbs=true"
