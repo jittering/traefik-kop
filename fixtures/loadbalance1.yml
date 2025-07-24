@@ -11,3 +11,4 @@ services:
       - "traefik.http.routers.lb1.tls.certresolver=default"
       - "traefik.http.services.lbtest.loadbalancer.server.scheme=http"
       - "traefik.http.services.lbtest.loadbalancer.server.port=5555"
+      - "traefik.merge-lbs=true"

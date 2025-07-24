@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -470,9 +471,11 @@ func getKopOverrideBinding(dc *dockerCache, conf *dynamic.Configuration, svcType
 	return hostIP, false
 }
 
-// mergeLoadBalancers merges load balancer servers for all protocols (http, tcp, udp)
+// mergeLoadBalancers merges load balancer servers for all protocols (http, tcp, udp) with the LBs
+// found in the Traefik store (redis). This allows kops running on multiple nodes to add their respective
+// IPs so that traefik can properly distribute the load.
 func mergeLoadBalancers(dc *dockerCache, conf *dynamic.Configuration, store TraefikStore) {
-	mergeGenericLoadBalancers("http", conf.HTTP, store, func(server interface{}) string {
+	mergeGenericLoadBalancers(dc, conf, "http", conf.HTTP, store, func(server interface{}) string {
 		if s, ok := server.(dynamic.Server); ok {
 			return s.URL
 		}
@@ -481,7 +484,7 @@ func mergeLoadBalancers(dc *dockerCache, conf *dynamic.Configuration, store Trae
 		return dynamic.Server{URL: url}
 	})
 
-	mergeGenericLoadBalancers("tcp", conf.TCP, store, func(server interface{}) string {
+	mergeGenericLoadBalancers(dc, conf, "tcp", conf.TCP, store, func(server interface{}) string {
 		if s, ok := server.(dynamic.TCPServer); ok {
 			return s.Address
 		}
@@ -490,7 +493,7 @@ func mergeLoadBalancers(dc *dockerCache, conf *dynamic.Configuration, store Trae
 		return dynamic.TCPServer{Address: addr}
 	})
 
-	mergeGenericLoadBalancers("udp", conf.UDP, store, func(server interface{}) string {
+	mergeGenericLoadBalancers(dc, conf, "udp", conf.UDP, store, func(server interface{}) string {
 		if s, ok := server.(dynamic.UDPServer); ok {
 			return s.Address
 		}
@@ -502,6 +505,8 @@ func mergeLoadBalancers(dc *dockerCache, conf *dynamic.Configuration, store Trae
 
 // mergeGenericLoadBalancers merges servers for a given protocol using generic logic
 func mergeGenericLoadBalancers(
+	dc *dockerCache,
+	conf *dynamic.Configuration,
 	svcType string,
 	svcConf interface{},
 	store TraefikStore,
@@ -521,6 +526,17 @@ func mergeGenericLoadBalancers(
 
 	for _, key := range servicesField.MapKeys() {
 		svcName := key.String()
+
+		container, err := dc.findContainerByServiceName(svcType, svcName, getRouterOfService(conf, svcName, svcType))
+		if err != nil {
+			logrus.Debugf("failed to find container for service '%s': %s", svcName, err)
+			return
+		}
+
+		merge, _ := strconv.ParseBool(container.Config.Labels["traefik.merge-lbs"])
+		if !merge {
+			return
+		}
 
 		// Get existing keys from store
 		var storeKey string
