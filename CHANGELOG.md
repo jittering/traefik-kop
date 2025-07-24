@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.17
+
+### New Features
+
+- Support for setting a TTL on Redis keys [#58](https://github.com/jittering/traefik-kop/pull/58)
+- Support for merging load balancers across multiple nodes managed by `traefik-kop` [#59](https://github.com/jittering/traefik-kop/pull/59)
+
+### Fixes
+
+- Allow outbound IP detection to fail [#56](https://github.com/jittering/traefik-kop/pull/56)
+- Normalize container labels [#56](https://github.com/jittering/traefik-kop/pull/57)
+
 ## v0.16
 
 ### Fixes
