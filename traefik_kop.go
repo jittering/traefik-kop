@@ -530,12 +530,12 @@ func mergeGenericLoadBalancers(
 		container, err := dc.findContainerByServiceName(svcType, svcName, getRouterOfService(conf, svcName, svcType))
 		if err != nil {
 			logrus.Debugf("failed to find container for service '%s': %s", svcName, err)
-			return
+			continue
 		}
 
 		merge, _ := strconv.ParseBool(container.Config.Labels["traefik.merge-lbs"])
 		if !merge {
-			return
+			continue
 		}
 
 		// Get existing keys from store
