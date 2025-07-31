@@ -202,7 +202,7 @@ so that traefik can reach it over the network.
 
 ## Namespaces
 
-traefik-kop has the ability to target containers via namespaces. Simply
+traefik-kop has the ability to target containers via namespaces(s). Simply
 configure `kop` with a namespace:
 
 ```yaml
@@ -231,6 +231,26 @@ services:
       - "kop.namespace=staging"
       - "traefik.enable=true"
       - "traefik..."
+```
+
+Multiple namespaces can be used by comma-delimiting your values. Traefik-kop will include a container as long as one of its namespaces is found.
+
+```yaml
+services:
+  traefik-kop:
+    # ...
+    environment:
+      # will expose any service with either 'dev' or 'staging'
+      - "NAMESPACE=dev,staging"
+```
+
+```yaml
+services:
+  nginx:
+    # ...
+    labels:
+      # will be exposed because it has namespace 'staging'
+      - "kop.namespace=staging,experimental"
 ```
 
 

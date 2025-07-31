@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	traefikkop "github.com/jittering/traefik-kop"
 	"github.com/sirupsen/logrus"
@@ -141,8 +142,24 @@ func main() {
 	flags()
 }
 
+func splitStringArr(str string) []string {
+	trimmed := strings.TrimSpace(str)
+	if trimmed != "" {
+		trimmedVals := strings.Split(trimmed, ",")
+		splitArr := make([]string, len(trimmedVals))
+		for i, v := range trimmedVals {
+			splitArr[i] = strings.TrimSpace(v)
+		}
+		return splitArr
+	}
+	return []string{}
+}
+
 func doStart(c *cli.Context) error {
 	traefikkop.Version = version
+
+	namespaces := splitStringArr(c.String("namespace"))
+
 	config := traefikkop.Config{
 		Hostname:     c.String("hostname"),
 		BindIP:       c.String("bind-ip"),
@@ -152,7 +169,7 @@ func doStart(c *cli.Context) error {
 		DockerHost:   c.String("docker-host"),
 		DockerConfig: c.String("docker-config"),
 		PollInterval: c.Int64("poll-interval"),
-		Namespace:    c.String("namespace"),
+		Namespace:    namespaces,
 	}
 
 	if config.BindIP == "" {
