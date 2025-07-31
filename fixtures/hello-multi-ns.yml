@@ -1,0 +1,17 @@
+
+services:
+  helloworld:
+    image: helloworld
+    restart: unless-stopped
+    ports:
+      - 5555:5555
+      - 5566:5566
+    labels:
+      - "kop.namespace=foobar,xyz"
+      - "traefik.enable=true"
+      - "traefik.http.routers.hello1.rule=Host(`hello1.local`)"
+      - "traefik.http.routers.hello1.service=hello1"
+      - "traefik.http.routers.hello1.tls=true"
+      - "traefik.http.routers.hello1.tls.certresolver=default"
+      - "traefik.http.services.hello1.loadbalancer.server.scheme=http"
+      - "traefik.http.services.hello1.loadbalancer.server.port=5555"

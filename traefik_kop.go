@@ -20,6 +20,7 @@ import (
 	"github.com/traefik/traefik/v2/pkg/provider/docker"
 	"github.com/traefik/traefik/v2/pkg/safe"
 	"github.com/traefik/traefik/v2/pkg/server"
+	"golang.org/x/exp/slices"
 )
 
 var Version = ""
@@ -138,14 +139,26 @@ func Start(config Config) {
 	select {} // go forever
 }
 
-func keepContainer(ns string, container types.ContainerJSON) bool {
-	containerNS := container.Config.Labels["kop.namespace"]
-	return ns == containerNS || (ns == "" && containerNS == "")
+func keepContainer(ns []string, container types.ContainerJSON) bool {
+	containerNS := splitStringArr(container.Config.Labels["kop.namespace"])
+	if len(ns) == 0 && len(containerNS) == 0 {
+		return true
+	}
+	for _, v := range ns {
+		if slices.Contains(containerNS, v) {
+			return true
+		}
+	}
+	return false
+}
+
+func joinNamespaces(ns []string) string {
+	return strings.Join(ns, ", ")
 }
 
 // filter out services by namespace
 // ns is traefik-kop's configured namespace to match against.
-func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns string) {
+func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
 	if conf.HTTP != nil && conf.HTTP.Services != nil {
 		for svcName := range conf.HTTP.Services {
 			container, err := dc.findContainerByServiceName("http", svcName, getRouterOfService(conf, svcName, "http"))
@@ -154,7 +167,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns string) {
 				continue
 			}
 			if !keepContainer(ns, container) {
-				logrus.Infof("skipping service %s (not in namespace %s)", svcName, ns)
+				logrus.Infof("skipping service %s (not in namespace %s)", svcName, joinNamespaces(ns))
 				delete(conf.HTTP.Services, svcName)
 			}
 		}
@@ -169,7 +182,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns string) {
 				continue
 			}
 			if !keepContainer(ns, container) {
-				logrus.Infof("skipping router %s (not in namespace %s)", routerName, ns)
+				logrus.Infof("skipping router %s (not in namespace %s)", routerName, joinNamespaces(ns))
 				delete(conf.HTTP.Routers, routerName)
 			}
 		}
@@ -183,7 +196,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns string) {
 				continue
 			}
 			if !keepContainer(ns, container) {
-				logrus.Infof("skipping service %s (not in namespace %s)", svcName, ns)
+				logrus.Infof("skipping service %s (not in namespace %s)", svcName, joinNamespaces(ns))
 				delete(conf.TCP.Services, svcName)
 			}
 		}
@@ -198,7 +211,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns string) {
 				continue
 			}
 			if !keepContainer(ns, container) {
-				logrus.Infof("skipping router %s (not in namespace %s)", routerName, ns)
+				logrus.Infof("skipping router %s (not in namespace %s)", routerName, joinNamespaces(ns))
 				delete(conf.TCP.Routers, routerName)
 			}
 		}
@@ -227,7 +240,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns string) {
 				continue
 			}
 			if !keepContainer(ns, container) {
-				logrus.Infof("skipping router %s (not in namespace %s)", routerName, ns)
+				logrus.Infof("skipping router %s (not in namespace %s)", routerName, joinNamespaces(ns))
 				delete(conf.UDP.Routers, routerName)
 			}
 		}

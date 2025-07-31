@@ -127,11 +127,37 @@ func Test_helloWorldIgnore(t *testing.T) {
 	store := processFile(t, "hello-ignore.yml")
 	assert.Nil(t, store.kv["traefik/http/routers/hello1/service"])
 
-	store = processFileWithConfig(t, nil, &Config{Namespace: "foobar"}, "hello-ignore.yml")
+	store = processFileWithConfig(t, nil, &Config{Namespace: []string{"foobar"}}, "hello-ignore.yml")
 	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://192.168.100.100:5555"},
 	})
+}
+
+func Test_helloWorldMultiNS(t *testing.T) {
+	store := processFile(t, "hello-multi-ns.yml")
+	assert.Nil(t, store.kv["traefik/http/routers/hello1/service"])
+
+	store = processFileWithConfig(t, nil, &Config{Namespace: []string{"foobar"}}, "hello-multi-ns.yml")
+	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
+	assertServiceIPs(t, store, []svc{
+		{"hello1", "http", "http://192.168.100.100:5555"},
+	})
+
+	store = processFileWithConfig(t, nil, &Config{Namespace: []string{"xyz"}}, "hello-multi-ns.yml")
+	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
+	assertServiceIPs(t, store, []svc{
+		{"hello1", "http", "http://192.168.100.100:5555"},
+	})
+
+	store = processFileWithConfig(t, nil, &Config{Namespace: []string{"foobar", "xyz"}}, "hello-multi-ns.yml")
+	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
+	assertServiceIPs(t, store, []svc{
+		{"hello1", "http", "http://192.168.100.100:5555"},
+	})
+
+	store = processFileWithConfig(t, nil, &Config{Namespace: []string{"abc"}}, "hello-multi-ns.yml")
+	assert.Nil(t, store.kv["traefik/http/routers/hello1/service"])
 }
 
 func Test_helloWorldAutoMapped(t *testing.T) {
