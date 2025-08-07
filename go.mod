@@ -17,12 +17,14 @@ require (
 	github.com/docker/go-connections v0.5.0
 	github.com/gofiber/fiber/v2 v2.52.5
 	github.com/pkg/errors v0.9.1
+	github.com/redis/go-redis/v9 v9.11.0
+	github.com/ryanuber/go-glob v1.0.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
 	github.com/traefik/paerser v0.2.2
 	github.com/traefik/traefik/v2 v2.11.27
 	github.com/urfave/cli/v2 v2.27.6
-	gopkg.in/redis.v5 v5.2.9
+	golang.org/x/exp v0.0.0-20241210194714-1829a127f884
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -279,11 +281,9 @@ require (
 	github.com/quic-go/qpack v0.5.1 // indirect
 	github.com/quic-go/quic-go v0.48.2 // indirect
 	github.com/rancher/go-rancher-metadata v0.0.0-20200311180630-7f4c936a06ac // indirect
-	github.com/redis/go-redis/v9 v9.11.0 // indirect
 	github.com/regfish/regfish-dnsapi-go v0.1.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sacloud/api-client-go v0.2.10 // indirect
 	github.com/sacloud/go-http v0.1.8 // indirect
 	github.com/sacloud/iaas-api-go v1.14.0 // indirect
@@ -362,7 +362,6 @@ require (
 	go.uber.org/ratelimit v0.3.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.39.0 // indirect
-	golang.org/x/exp v0.0.0-20241210194714-1829a127f884 // indirect
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
