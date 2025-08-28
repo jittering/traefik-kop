@@ -1,15 +1,15 @@
 package main
 
 import (
-	"fmt"
-	"net"
-	"os"
-	"strings"
+    "fmt"
+    "net"
+    "os"
+    "strings"
 
-	traefikkop "github.com/jittering/traefik-kop"
-	"github.com/sirupsen/logrus"
-	"github.com/traefik/traefik/v2/pkg/log"
-	"github.com/urfave/cli/v2"
+    traefikkop "github.com/jittering/traefik-kop"
+    "github.com/sirupsen/logrus"
+    "github.com/traefik/traefik/v2/pkg/log"
+    "github.com/urfave/cli/v2"
 )
 
 const defaultDockerHost = "unix:///var/run/docker.sock"
@@ -53,24 +53,28 @@ func flags() {
 
 		Action: doStart,
 
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "hostname",
-				Usage:   "Hostname to identify this node in redis",
-				Value:   getHostname(),
-				EnvVars: []string{"KOP_HOSTNAME"},
-			},
-			&cli.StringFlag{
-				Name:    "bind-ip",
-				Usage:   "IP address to bind services to",
-				Value:   getDefaultIP(),
-				EnvVars: []string{"BIND_IP"},
-			},
-			&cli.StringFlag{
-				Name:    "redis-addr",
-				Usage:   "Redis address",
-				Value:   "127.0.0.1:6379",
-				EnvVars: []string{"REDIS_ADDR"},
+        Flags: []cli.Flag{
+            &cli.StringFlag{
+                Name:    "hostname",
+                Usage:   "Hostname to identify this node in redis",
+                Value:   getHostname(),
+                EnvVars: []string{"KOP_HOSTNAME"},
+            },
+            &cli.StringFlag{
+                Name:    "bind-ip",
+                Usage:   "IP address to bind services to",
+                EnvVars: []string{"BIND_IP"},
+            },
+            &cli.StringFlag{
+                Name:    "bind-interface",
+                Usage:   "Network interface to derive bind IP (overrides auto-detect)",
+                EnvVars: []string{"BIND_INTERFACE"},
+            },
+            &cli.StringFlag{
+                Name:    "redis-addr",
+                Usage:   "Redis address",
+                Value:   "127.0.0.1:6379",
+                EnvVars: []string{"REDIS_ADDR"},
 			},
 			&cli.StringFlag{
 				Name:    "redis-pass",
@@ -156,25 +160,36 @@ func splitStringArr(str string) []string {
 }
 
 func doStart(c *cli.Context) error {
-	traefikkop.Version = version
+    traefikkop.Version = version
 
-	namespaces := splitStringArr(c.String("namespace"))
+    namespaces := splitStringArr(c.String("namespace"))
 
-	config := traefikkop.Config{
-		Hostname:     c.String("hostname"),
-		BindIP:       c.String("bind-ip"),
-		Addr:         c.String("redis-addr"),
-		Pass:         c.String("redis-pass"),
-		DB:           c.Int("redis-db"),
-		DockerHost:   c.String("docker-host"),
-		DockerConfig: c.String("docker-config"),
+    // Determine bind IP: precedence -> explicit --bind-ip -> --bind-interface -> auto-detect
+    bindIP := strings.TrimSpace(c.String("bind-ip"))
+    if bindIP == "" {
+        iface := strings.TrimSpace(c.String("bind-interface"))
+        if iface != "" {
+            bindIP = getDefaultIP(iface)
+        } else {
+            bindIP = getDefaultIP("")
+        }
+    }
+
+    config := traefikkop.Config{
+        Hostname:     c.String("hostname"),
+        BindIP:       bindIP,
+        Addr:         c.String("redis-addr"),
+        Pass:         c.String("redis-pass"),
+        DB:           c.Int("redis-db"),
+        DockerHost:   c.String("docker-host"),
+        DockerConfig: c.String("docker-config"),
 		PollInterval: c.Int64("poll-interval"),
 		Namespace:    namespaces,
 	}
 
-	if config.BindIP == "" {
-		log.Fatal("Bind IP cannot be empty")
-	}
+    if config.BindIP == "" {
+        log.Fatal("Bind IP cannot be empty")
+    }
 
 	setupLogging(c.Bool("verbose"))
 	logrus.Debugf("using traefik-kop config: %s", fmt.Sprintf("%+v", config))
@@ -191,25 +206,64 @@ func getHostname() string {
 	return hostname
 }
 
-func getDefaultIP() string {
-	ip := GetOutboundIP()
-	if ip == nil {
-		return ""
-	}
-	return ip.String()
+func getDefaultIP(iface string) string {
+    // If a network interface is specified, attempt to get its primary IPv4 address
+    if strings.TrimSpace(iface) != "" {
+        if ip := GetInterfaceIP(iface); ip != nil {
+            return ip.String()
+        }
+        log.Warnf("failed to get IP for interface '%s'; falling back to auto-detect", iface)
+    }
+    ip := GetOutboundIP()
+    if ip == nil {
+        return ""
+    }
+    return ip.String()
 }
 
 // Get preferred outbound ip of this machine
 // via https://stackoverflow.com/a/37382208/102920
 func GetOutboundIP() net.IP {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		log.Warnf("failed to detect outbound IP: %s", err)
-		return nil
-	}
-	defer conn.Close()
+    conn, err := net.Dial("udp", "8.8.8.8:80")
+    if err != nil {
+        log.Warnf("failed to detect outbound IP: %s", err)
+        return nil
+    }
+    defer conn.Close()
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
+    localAddr := conn.LocalAddr().(*net.UDPAddr)
 
-	return localAddr.IP
+    return localAddr.IP
+}
+
+// GetInterfaceIP returns the first non-loopback IPv4 address for the named interface
+func GetInterfaceIP(name string) net.IP {
+    iface, err := net.InterfaceByName(name)
+    if err != nil {
+        log.Warnf("unable to find interface '%s': %v", name, err)
+        return nil
+    }
+    addrs, err := iface.Addrs()
+    if err != nil {
+        log.Warnf("unable to list addresses for interface '%s': %v", name, err)
+        return nil
+    }
+    for _, a := range addrs {
+        var ip net.IP
+        switch v := a.(type) {
+        case *net.IPNet:
+            ip = v.IP
+        case *net.IPAddr:
+            ip = v.IP
+        }
+        if ip == nil || ip.IsLoopback() {
+            continue
+        }
+        ip = ip.To4()
+        if ip == nil {
+            continue // skip IPv6 for bind default
+        }
+        return ip
+    }
+    return nil
 }
