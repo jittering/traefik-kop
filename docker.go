@@ -19,10 +19,12 @@ import (
 // Copied from traefik. See docker provider package for original impl
 
 type dockerCache struct {
-	client  client.APIClient
-	list    []types.Container
-	details map[string]types.ContainerJSON
-	expires time.Time
+	client         client.APIClient
+	list           []types.Container
+	details        map[string]types.ContainerJSON
+	originalLabels map[string]map[string]string // Store original labels for namespace checking
+	expires        time.Time
+	namespaces     []string // Add namespace information for label processing
 }
 
 // Must be 0 for unix socket?
@@ -66,6 +68,10 @@ func (dc *dockerCache) populate() error {
 	if time.Now().After(dc.expires) {
 		dc.list = nil
 		dc.details = make(map[string]types.ContainerJSON)
+		// Don't reset originalLabels - we want to preserve the original labels from first load
+		if dc.originalLabels == nil {
+			dc.originalLabels = make(map[string]map[string]string)
+		}
 	}
 
 	if dc.list == nil {
@@ -73,6 +79,21 @@ func (dc *dockerCache) populate() error {
 		dc.list, err = dc.client.ContainerList(context.Background(), container.ListOptions{})
 		if err != nil {
 			return errors.Wrap(err, "failed to list containers")
+		}
+		logrus.Debugf("populate: listed %d containers", len(dc.list))
+	}
+
+	// Clean up originalLabels for containers that no longer exist
+	if len(dc.originalLabels) > 0 {
+		currentContainerIDs := make(map[string]bool)
+		for _, c := range dc.list {
+			currentContainerIDs[c.ID] = true
+		}
+
+		for containerID := range dc.originalLabels {
+			if !currentContainerIDs[containerID] {
+				delete(dc.originalLabels, containerID)
+			}
 		}
 	}
 
@@ -86,33 +107,133 @@ func (dc *dockerCache) populate() error {
 				return errors.Wrapf(err, "failed to inspect container %s", c.ID)
 			}
 			dc.details[c.ID] = container
+			logrus.Debugf("populate: inspected %s", container.ID)
 		}
 
-		// normalize labels
-		labels := make(map[string]string, len(container.Config.Labels))
+		// Always refresh original labels from live Docker inspect to avoid drift
+		refreshedOriginal := make(map[string]string, len(container.Config.Labels))
 		for k, v := range container.Config.Labels {
-			labels[strings.ToLower(k)] = v
+			refreshedOriginal[strings.ToLower(k)] = v
 		}
-		container.Config.Labels = labels
+		dc.originalLabels[container.ID] = refreshedOriginal
+		logrus.Debugf("populate: refreshed original labels for %s: %d labels", container.ID, len(refreshedOriginal))
+
+		// Process labels with namespace-aware logic, but do NOT write back
+		// to the cached container. Consumers should use dc.processLabelsForNamespaces(container)
+		// at read sites instead of relying on mutated labels.
 	}
 
-	dc.expires = time.Now().Add(5 * time.Second) // cache expires in 30 seconds
+	dc.expires = time.Now().Add(30 * time.Second) // cache expires in 30 seconds
 
 	return nil
 }
 
+// processLabelsForNamespaces processes container labels based on namespace-specific prefixes
+// It implements the label isolation mechanism:
+// - If kop.$namespace.traefik.* labels exist for our namespaces, use only those (converted to traefik.*)
+// - Otherwise, use all traefik.* labels for backward compatibility, but only if namespace filtering allows it
+func (dc *dockerCache) processLabelsForNamespaces(container types.ContainerJSON) map[string]string {
+	labels := make(map[string]string)
+
+	// Always use original labels to check for kop labels, since container.Config.Labels
+	// might have been processed already and no longer contain the original kop.* labels
+	originalLabels := dc.getOriginalLabels(container.ID)
+	if originalLabels == nil {
+		// Fallback: create original labels from current labels if not stored yet
+		originalLabels = make(map[string]string)
+		for k, v := range container.Config.Labels {
+			originalLabels[strings.ToLower(k)] = v
+		}
+	}
+
+	// Check if any kop.$namespace.traefik.* labels exist for our namespaces
+	hasKopLabels := false
+	for _, targetNamespace := range dc.namespaces {
+		kopPrefix := fmt.Sprintf("kop.%s.traefik.", targetNamespace)
+		for k := range originalLabels {
+			if strings.HasPrefix(k, kopPrefix) {
+				hasKopLabels = true
+				break
+			}
+		}
+		if hasKopLabels {
+			break
+		}
+	}
+
+	if hasKopLabels {
+		// New mode: only read kop.$namespace.traefik.* and convert to traefik.*
+		for _, targetNamespace := range dc.namespaces {
+			kopPrefix := fmt.Sprintf("kop.%s.traefik.", targetNamespace)
+			for k, v := range originalLabels {
+				if strings.HasPrefix(k, kopPrefix) {
+					// Remove kop.$namespace. prefix, convert to standard traefik.* label
+					newKey := strings.TrimPrefix(k, fmt.Sprintf("kop.%s.", targetNamespace))
+					labels[newKey] = v
+				}
+			}
+		}
+	} else {
+		// Backward compatibility mode: use all traefik.* labels from original labels
+		for k, v := range originalLabels {
+			if strings.HasPrefix(k, "traefik.") {
+				labels[k] = v
+			}
+		}
+	}
+
+	return labels
+}
+
+// getOriginalLabels returns the original (unprocessed) labels for a container
+func (dc *dockerCache) getOriginalLabels(containerID string) map[string]string {
+	if dc.originalLabels == nil {
+		return nil
+	}
+	return dc.originalLabels[containerID]
+}
+
 // looks up the docker container by finding the matching service or router traefik label
 func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string, routerName string) (types.ContainerJSON, error) {
-	err := dc.populate()
-	if err != nil {
-		return types.ContainerJSON{}, err
+	// Use a consistent snapshot. Populate only if empty to avoid mid-run drift.
+	if dc.list == nil || len(dc.details) == 0 {
+		if err := dc.populate(); err != nil {
+			return types.ContainerJSON{}, err
+		}
 	}
 
 	svcName = stripDocker(svcName)
 	routerName = stripDocker(routerName)
 
 	for _, container := range dc.details {
-		// check labels
+		// Check in original labels first (for services that might have been filtered)
+		originalLabels := dc.getOriginalLabels(container.ID)
+		if originalLabels != nil {
+			svcNeedle := fmt.Sprintf("traefik.%s.services.%s.", svcType, svcName)
+			routerNeedle := fmt.Sprintf("traefik.%s.routers.%s.", svcType, routerName)
+
+			// Check original labels
+			for k := range originalLabels {
+				if strings.HasPrefix(k, svcNeedle) || (routerName != "" && strings.HasPrefix(k, routerNeedle)) {
+					logrus.Debugf("found container '%s' (%s) for service '%s' in original labels", container.Name, container.ID, svcName)
+					return container, nil
+				}
+			}
+
+			// Also check for kop labels that could generate this service
+			for _, targetNS := range dc.namespaces {
+				kopSvcNeedle := fmt.Sprintf("kop.%s.traefik.%s.services.%s.", targetNS, svcType, svcName)
+				kopRouterNeedle := fmt.Sprintf("kop.%s.traefik.%s.routers.%s.", targetNS, svcType, routerName)
+				for k := range originalLabels {
+					if strings.HasPrefix(k, kopSvcNeedle) || (routerName != "" && strings.HasPrefix(k, kopRouterNeedle)) {
+						logrus.Debugf("found container '%s' (%s) for service '%s' in kop labels", container.Name, container.ID, svcName)
+						return container, nil
+					}
+				}
+			}
+		}
+
+		// Fallback to processed labels
 		svcNeedle := fmt.Sprintf("traefik.%s.services.%s.", svcType, svcName)
 		routerNeedle := fmt.Sprintf("traefik.%s.routers.%s.", svcType, routerName)
 		for k := range container.Config.Labels {

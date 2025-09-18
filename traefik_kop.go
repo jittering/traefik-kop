@@ -58,15 +58,18 @@ func newDockerProvider(config Config) *docker.Provider {
 
 func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider, dockerClient client.APIClient) func(conf dynamic.Configuration) {
 	return func(conf dynamic.Configuration) {
-		// logrus.Printf("got new conf..\n")
-		// fmt.Printf("%s\n", dumpJson(conf))
 		logrus.Infoln("refreshing traefik-kop configuration")
 
 		dc := &dockerCache{
-			client:  dockerClient,
-			list:    nil,
-			details: make(map[string]types.ContainerJSON),
+			client:         dockerClient,
+			list:           nil,
+			details:        make(map[string]types.ContainerJSON),
+			originalLabels: make(map[string]map[string]string),
+			namespaces:     config.Namespace,
 		}
+
+		// Enhance configuration with kop.namespace services/routers before filtering
+		enhanceConfigurationWithKopLabels(dc, &conf, config.Namespace)
 
 		filterServices(dc, &conf, config.Namespace)
 
@@ -139,8 +142,26 @@ func Start(config Config) {
 	select {} // go forever
 }
 
-func keepContainer(ns []string, container types.ContainerJSON) bool {
-	containerNS := splitStringArr(container.Config.Labels["kop.namespace"])
+func keepContainer(ns []string, container types.ContainerJSON, dc *dockerCache) bool {
+	// Get original labels to check for namespace information
+	originalLabels := dc.getOriginalLabels(container.ID)
+	if originalLabels == nil {
+		// Fallback to processed labels if original not available
+		originalLabels = container.Config.Labels
+	}
+
+	// New logic: check for kop.$namespace.traefik.* labels in original labels
+	for _, targetNS := range ns {
+		kopPrefix := fmt.Sprintf("kop.%s.traefik.", targetNS)
+		for k := range originalLabels {
+			if strings.HasPrefix(strings.ToLower(k), kopPrefix) {
+				return true
+			}
+		}
+	}
+
+	// Backward compatibility: check kop.namespace label
+	containerNS := splitStringArr(originalLabels["kop.namespace"])
 	if len(ns) == 0 && len(containerNS) == 0 {
 		return true
 	}
@@ -152,8 +173,244 @@ func keepContainer(ns []string, container types.ContainerJSON) bool {
 	return false
 }
 
+// keepServiceForProtocol checks if a specific service should be kept based on namespace rules for a given protocol
+// For containers with new kop.$namespace.traefik.* syntax, only services generated from those labels should be kept
+func keepServiceForProtocol(ns []string, svcName string, protocol string, container types.ContainerJSON, dc *dockerCache) bool {
+	// Get original labels to check for namespace information
+	originalLabels := dc.getOriginalLabels(container.ID)
+	if originalLabels == nil {
+		originalLabels = container.Config.Labels
+	}
+
+	svcNameWithoutDocker := stripDocker(svcName)
+
+	// Check if container has new syntax labels
+	hasKopLabels := false
+	for _, targetNS := range ns {
+		kopPrefix := fmt.Sprintf("kop.%s.traefik.", targetNS)
+		for k := range originalLabels {
+			if strings.HasPrefix(strings.ToLower(k), kopPrefix) {
+				hasKopLabels = true
+				break
+			}
+		}
+		if hasKopLabels {
+			break
+		}
+	}
+
+	if hasKopLabels {
+		// New mode: only allow services that come from kop.$namespace.traefik.* labels
+		// Check if this service was generated from kop labels by looking for matching service name in kop labels
+		for _, targetNS := range ns {
+			kopServicePrefix := fmt.Sprintf("kop.%s.traefik.%s.services.%s.", targetNS, protocol, svcNameWithoutDocker)
+			for k := range originalLabels {
+				if strings.HasPrefix(strings.ToLower(k), kopServicePrefix) {
+					return true
+				}
+			}
+		}
+		return false
+	} else {
+		// Backward compatibility mode: use existing keepContainer logic
+		return keepContainer(ns, container, dc)
+	}
+}
+
+// keepService is a convenience wrapper for HTTP services
+func keepService(ns []string, svcName string, container types.ContainerJSON, dc *dockerCache) bool {
+	return keepServiceForProtocol(ns, svcName, "http", container, dc)
+}
+
+// keepRouterForProtocol checks if a specific router should be kept based on namespace rules for a given protocol
+// For containers with new kop.$namespace.traefik.* syntax, only routers generated from those labels should be kept
+func keepRouterForProtocol(ns []string, routerName string, protocol string, container types.ContainerJSON, dc *dockerCache) bool {
+	// Get original labels to check for namespace information
+	originalLabels := dc.getOriginalLabels(container.ID)
+	if originalLabels == nil {
+		originalLabels = container.Config.Labels
+	}
+
+	// Check if container has new syntax labels
+	hasKopLabels := false
+	for _, targetNS := range ns {
+		kopPrefix := fmt.Sprintf("kop.%s.traefik.", targetNS)
+		for k := range originalLabels {
+			if strings.HasPrefix(strings.ToLower(k), kopPrefix) {
+				hasKopLabels = true
+				break
+			}
+		}
+		if hasKopLabels {
+			break
+		}
+	}
+
+	if hasKopLabels {
+		// New mode: only allow routers that come from kop.$namespace.traefik.* labels
+		// Check if this router was generated from kop labels by looking for matching router name in kop labels
+		routerNameWithoutDocker := stripDocker(routerName)
+		for _, targetNS := range ns {
+			kopRouterPrefix := fmt.Sprintf("kop.%s.traefik.%s.routers.%s.", targetNS, protocol, routerNameWithoutDocker)
+			for k := range originalLabels {
+				if strings.HasPrefix(strings.ToLower(k), kopRouterPrefix) {
+					return true
+				}
+			}
+		}
+		return false
+	} else {
+		// Backward compatibility mode: use existing keepContainer logic
+		return keepContainer(ns, container, dc)
+	}
+}
+
+// keepRouter is a convenience wrapper for HTTP routers
+func keepRouter(ns []string, routerName string, container types.ContainerJSON, dc *dockerCache) bool {
+	return keepRouterForProtocol(ns, routerName, "http", container, dc)
+}
+
 func joinNamespaces(ns []string) string {
 	return strings.Join(ns, ", ")
+}
+
+// enhanceConfigurationWithKopLabels adds services and routers from kop.$namespace.traefik.* labels
+// This ensures that containers with new syntax have their services/routers available for filtering
+func enhanceConfigurationWithKopLabels(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
+	err := dc.populate()
+	if err != nil {
+		logrus.Errorf("failed to populate docker cache: %s", err)
+		return
+	}
+
+	// Initialize HTTP sections if needed
+	if conf.HTTP == nil {
+		conf.HTTP = &dynamic.HTTPConfiguration{}
+	}
+	if conf.HTTP.Services == nil {
+		conf.HTTP.Services = make(map[string]*dynamic.Service)
+	}
+	if conf.HTTP.Routers == nil {
+		conf.HTTP.Routers = make(map[string]*dynamic.Router)
+	}
+
+	// Process each container
+	for _, container := range dc.details {
+		originalLabels := dc.getOriginalLabels(container.ID)
+		if originalLabels == nil {
+			continue
+		}
+
+		// Check if this container has kop.$namespace.traefik.* labels
+		hasKopLabels := false
+		for _, targetNS := range ns {
+			kopPrefix := fmt.Sprintf("kop.%s.traefik.", targetNS)
+			for k := range originalLabels {
+				if strings.HasPrefix(k, kopPrefix) {
+					hasKopLabels = true
+					break
+				}
+			}
+			if hasKopLabels {
+				break
+			}
+		}
+
+		if !hasKopLabels {
+			continue
+		}
+
+		// Convert kop labels to traefik configuration
+		processedLabels := dc.processLabelsForNamespaces(container)
+		// debug: label injection count (kept minimal)
+		logrus.Debugf("enhance: %s injected %d kop labels", container.ID, len(processedLabels))
+
+		// Generate additional configuration from the processed labels
+		// This simulates what Traefik Docker Provider would do
+		enhanceHTTPConfiguration(conf.HTTP, processedLabels, container)
+	}
+}
+
+// enhanceHTTPConfiguration adds HTTP services and routers based on processed labels
+func enhanceHTTPConfiguration(conf *dynamic.HTTPConfiguration, labels map[string]string, container types.ContainerJSON) {
+	// Find all service definitions
+	services := make(map[string]map[string]string)
+	routers := make(map[string]map[string]string)
+
+	for k, v := range labels {
+		if strings.HasPrefix(k, "traefik.http.services.") {
+			parts := strings.Split(k, ".")
+			if len(parts) >= 4 {
+				serviceName := parts[3]
+				property := strings.Join(parts[4:], ".")
+				if services[serviceName] == nil {
+					services[serviceName] = make(map[string]string)
+				}
+				services[serviceName][property] = v
+			}
+		} else if strings.HasPrefix(k, "traefik.http.routers.") {
+			parts := strings.Split(k, ".")
+			if len(parts) >= 4 {
+				routerName := parts[3]
+				property := strings.Join(parts[4:], ".")
+				if routers[routerName] == nil {
+					routers[routerName] = make(map[string]string)
+				}
+				routers[routerName][property] = v
+			}
+		}
+	}
+
+	// Create HTTP services
+	for serviceName, props := range services {
+		if _, exists := conf.Services[serviceName+"@docker"]; !exists {
+			service := &dynamic.Service{
+				LoadBalancer: &dynamic.ServersLoadBalancer{
+					PassHostHeader: func() *bool { b := true; return &b }(),
+					Servers:        []dynamic.Server{},
+				},
+			}
+
+			// Basic configuration - just add a server with the container IP
+			// The port will be determined later by replaceIPs/replacePorts
+			if container.NetworkSettings != nil && len(container.NetworkSettings.Networks) > 0 {
+				for _, network := range container.NetworkSettings.Networks {
+					port := "80" // default port
+					if portStr, ok := props["loadbalancer.server.port"]; ok {
+						port = portStr
+					}
+					server := dynamic.Server{
+						URL: fmt.Sprintf("http://%s:%s", network.IPAddress, port),
+					}
+					service.LoadBalancer.Servers = append(service.LoadBalancer.Servers, server)
+					break // Use first network
+				}
+			}
+
+			conf.Services[serviceName+"@docker"] = service
+		}
+	}
+
+	// Create HTTP routers
+	for routerName, props := range routers {
+		if _, exists := conf.Routers[routerName+"@docker"]; !exists {
+			router := &dynamic.Router{}
+
+			if rule, ok := props["rule"]; ok {
+				router.Rule = rule
+			}
+			if service, ok := props["service"]; ok {
+				router.Service = service
+			} else {
+				router.Service = routerName // default service name
+			}
+			if entrypoints, ok := props["entrypoints"]; ok {
+				router.EntryPoints = strings.Split(entrypoints, ",")
+			}
+
+			conf.Routers[routerName+"@docker"] = router
+		}
+	}
 }
 
 // filter out services by namespace
@@ -166,7 +423,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
 				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
 				continue
 			}
-			if !keepContainer(ns, container) {
+			if !keepServiceForProtocol(ns, svcName, "http", container, dc) {
 				logrus.Infof("skipping service %s (not in namespace %s)", svcName, joinNamespaces(ns))
 				delete(conf.HTTP.Services, svcName)
 			}
@@ -181,7 +438,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
 				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
 				continue
 			}
-			if !keepContainer(ns, container) {
+			if !keepRouterForProtocol(ns, routerName, "http", container, dc) {
 				logrus.Infof("skipping router %s (not in namespace %s)", routerName, joinNamespaces(ns))
 				delete(conf.HTTP.Routers, routerName)
 			}
@@ -195,7 +452,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
 				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
 				continue
 			}
-			if !keepContainer(ns, container) {
+			if !keepServiceForProtocol(ns, svcName, "tcp", container, dc) {
 				logrus.Infof("skipping service %s (not in namespace %s)", svcName, joinNamespaces(ns))
 				delete(conf.TCP.Services, svcName)
 			}
@@ -210,7 +467,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
 				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
 				continue
 			}
-			if !keepContainer(ns, container) {
+			if !keepRouterForProtocol(ns, routerName, "tcp", container, dc) {
 				logrus.Infof("skipping router %s (not in namespace %s)", routerName, joinNamespaces(ns))
 				delete(conf.TCP.Routers, routerName)
 			}
@@ -224,7 +481,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
 				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
 				continue
 			}
-			if !keepContainer(ns, container) {
+			if !keepServiceForProtocol(ns, svcName, "udp", container, dc) {
 				logrus.Warnf("service %s is not running: removing from config", svcName)
 				delete(conf.UDP.Services, svcName)
 			}
@@ -239,7 +496,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
 				logrus.Warnf("failed to find container for service '%s': %s", svcName, err)
 				continue
 			}
-			if !keepContainer(ns, container) {
+			if !keepRouterForProtocol(ns, routerName, "udp", container, dc) {
 				logrus.Infof("skipping router %s (not in namespace %s)", routerName, joinNamespaces(ns))
 				delete(conf.UDP.Routers, routerName)
 			}
@@ -262,10 +519,14 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 			log := logrus.WithFields(logrus.Fields{"service": svcName, "service-type": "http"})
 			log.Debugf("found http service: %s", svcName)
 			for i := range svc.LoadBalancer.Servers {
-				ip, changed := getKopOverrideBinding(dc, conf, "http", svcName, ip)
-				if !changed {
-					// override with container IP if we have a routable IP
-					ip = getContainerNetworkIP(dc, conf, "http", svcName, ip)
+				effectiveIP := ip
+				if v, changed := getKopOverrideBinding(dc, conf, "http", svcName, ip); changed {
+					effectiveIP = v
+				} else {
+					// For kop-generated services, prefer host IP; only use container IP for non-kop services
+					if !isServiceFromKop(dc, conf, "http", svcName) {
+						effectiveIP = getContainerNetworkIP(dc, conf, "http", svcName, ip)
+					}
 				}
 
 				// replace ip into URLs
@@ -281,9 +542,9 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 					u, _ := url.Parse(server.URL)
 					p := getContainerPort(dc, conf, "http", svcName, u.Port())
 					if p != "" {
-						u.Host = ip + ":" + p
+						u.Host = effectiveIP + ":" + p
 					} else {
-						u.Host = ip
+						u.Host = effectiveIP
 					}
 					server.URL = u.String()
 				} else {
@@ -291,7 +552,7 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 					if server.Scheme != "" {
 						scheme = server.Scheme
 					}
-					server.URL = fmt.Sprintf("%s://%s", scheme, ip)
+					server.URL = fmt.Sprintf("%s://%s", scheme, effectiveIP)
 					port := getContainerPort(dc, conf, "http", svcName, server.Port)
 					if port != "" {
 						server.URL += ":" + server.Port
@@ -435,6 +696,12 @@ func getContainerNetworkIP(dc *dockerCache, conf *dynamic.Configuration, svcType
 		return hostIP
 	}
 
+	// Only honor container IP if this is NOT a kop-generated service
+	// kop-generated services should use BindIP unless explicitly overridden by kop.bind.ip
+	if isServiceFromKop(dc, conf, svcType, svcName) {
+		return hostIP
+	}
+
 	networkName := container.Config.Labels["traefik.docker.network"]
 	if networkName == "" {
 		logrus.Debugf("no network label set for %s", svcName)
@@ -482,6 +749,30 @@ func getKopOverrideBinding(dc *dockerCache, conf *dynamic.Configuration, svcType
 	}
 
 	return hostIP, false
+}
+
+// Determine whether this service originated from kop.$ns.traefik.* labels
+func isServiceFromKop(dc *dockerCache, conf *dynamic.Configuration, svcType string, svcName string) bool {
+	container, err := dc.findContainerByServiceName(svcType, svcName, getRouterOfService(conf, svcName, svcType))
+	if err != nil {
+		return false
+	}
+	original := dc.getOriginalLabels(container.ID)
+	if original == nil {
+		return false
+	}
+	svcName = stripDocker(svcName)
+	// check kop.* services or routers labels
+	for _, ns := range dc.namespaces {
+		pref1 := fmt.Sprintf("kop.%s.traefik.%s.services.%s.", ns, svcType, svcName)
+		pref2 := fmt.Sprintf("kop.%s.traefik.%s.routers.%s.", ns, svcType, svcName)
+		for k := range original {
+			if strings.HasPrefix(k, pref1) || strings.HasPrefix(k, pref2) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // mergeLoadBalancers merges load balancer servers for all protocols (http, tcp, udp) with the LBs

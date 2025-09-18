@@ -44,7 +44,7 @@ func Test_replaceIPs(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "172.20.0.2")
 
-	fc := &dockerCache{client: &fakeDockerClient{}, list: nil, details: make(map[string]types.ContainerJSON)}
+	fc := &dockerCache{client: &fakeDockerClient{}, list: nil, details: make(map[string]types.ContainerJSON), originalLabels: make(map[string]map[string]string)}
 
 	// replace and test check again
 	replaceIPs(fc, cfg, "7.7.7.7")
@@ -91,7 +91,7 @@ func Test_replacePorts(t *testing.T) {
 		portLabel: "8888",
 	})
 
-	fc := &dockerCache{client: dc, list: nil, details: make(map[string]types.ContainerJSON)}
+	fc := &dockerCache{client: dc, list: nil, details: make(map[string]types.ContainerJSON), originalLabels: make(map[string]map[string]string)}
 
 	cfg := &dynamic.Configuration{}
 	err := json.Unmarshal([]byte(NGINX_CONF_JSON), cfg)
@@ -138,7 +138,7 @@ func Test_replacePortsNoService(t *testing.T) {
 	dc := createTestClient(map[string]string{
 		"traefik.http.routers.nginx.entrypoints": "web-secure",
 	})
-	fc := &dockerCache{client: dc, list: nil, details: make(map[string]types.ContainerJSON)}
+	fc := &dockerCache{client: dc, list: nil, details: make(map[string]types.ContainerJSON), originalLabels: make(map[string]map[string]string)}
 
 	cfg := &dynamic.Configuration{}
 	err := json.Unmarshal([]byte(NGINX_CONF_JSON_DIFFRENT_SERVICE_NAME), cfg)

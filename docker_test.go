@@ -197,3 +197,17 @@ func Test_loadbalance(t *testing.T) {
 	assert.Contains(t, urls, "http://192.168.100.100:5555")
 	assert.Contains(t, urls, "http://192.168.100.100:5556")
 }
+
+func Test_mixedLabelsFiltering(t *testing.T) {
+	// container has both traefik.* and kop.$namespace.traefik.* labels
+	// Only services/routers generated from kop labels should be kept
+	store := processFileWithConfig(t, nil, &Config{Namespace: []string{"ns1"}}, "hello-kop-prefixed.yaml")
+
+	// kop-generated should exist
+	assert.Equal(t, "hello-internal", store.kv["traefik/http/routers/hello-internal/service"])
+	assert.Contains(t, store.kv["traefik/http/services/hello-internal/loadBalancer/servers/0/url"], ":23001")
+
+	// local traefik-only should be filtered out by kop instance
+	assert.Nil(t, store.kv["traefik/http/routers/hello-external/service"])
+	assert.Nil(t, store.kv["traefik/http/services/hello-external/loadBalancer/servers/0/url"])
+}

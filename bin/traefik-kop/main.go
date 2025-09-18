@@ -161,9 +161,11 @@ func doStart(c *cli.Context) error {
 	namespaces := splitStringArr(c.String("namespace"))
 
 	config := traefikkop.Config{
-		Hostname:     c.String("hostname"),
-		BindIP:       c.String("bind-ip"),
-		Addr:         c.String("redis-addr"),
+		Hostname: c.String("hostname"),
+		BindIP:   c.String("bind-ip"),
+		Addr:     c.String("redis-addr"),
+		// TODO: uncomment this when we have a way to set the TTL？
+		// RedisTTL:     c.Int("redis-ttl"),
 		Pass:         c.String("redis-pass"),
 		DB:           c.Int("redis-db"),
 		DockerHost:   c.String("docker-host"),

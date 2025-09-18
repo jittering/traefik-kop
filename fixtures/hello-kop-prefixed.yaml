@@ -1,0 +1,23 @@
+services:
+  helloworld:
+    image: helloworld
+    ports:
+      - "3001:3001"
+      - "23001:23001"
+    labels:
+      - "traefik.enable=true"
+
+      # ----- Local traefik labels (should be ignored by kop)
+      - "traefik.public=true"
+      - "traefik.docker.network=testing_default"
+      - "traefik.http.routers.hello-external.rule=Host(`public.example.test`) && (Path(`/api/script.js`) || Path(`/api/replay.js`))"
+      - "traefik.http.routers.hello-external.entrypoints=cf"
+      - "traefik.http.services.hello-external.loadbalancer.server.port=3001"
+      - "traefik.http.routers.hello-external.service=hello-external"
+
+      # ----- Remote traefik labels via kop (should be processed)
+      - "kop.ns1.traefik.http.routers.hello-internal.rule=Host(`internal.example.test`) && PathPrefix(`/api`)"
+      - "kop.ns1.traefik.http.services.hello-internal.loadbalancer.server.port=23001"
+      - "kop.ns1.traefik.http.routers.hello-internal.entrypoints=websecure"
+      - "kop.ns1.traefik.http.routers.hello-internal.service=hello-internal"
+
