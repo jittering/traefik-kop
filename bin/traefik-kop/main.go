@@ -177,6 +177,7 @@ func doStart(c *cli.Context) error {
 		Addr:         c.String("redis-addr"),
 		Pass:         c.String("redis-pass"),
 		DB:           c.Int("redis-db"),
+		RedisTTL:     c.Int("redis-ttl"),
 		DockerHost:   c.String("docker-host"),
 		DockerConfig: c.String("docker-config"),
 		PollInterval: c.Int64("poll-interval"),
