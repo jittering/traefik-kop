@@ -86,13 +86,13 @@ func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider,
 
 func Start(config Config) {
 	dp := newDockerProvider(config)
-	store := NewRedisStore(config.Hostname, config.Addr, config.RedisTTL, config.User, config.Pass, config.DB)
+	store := NewRedisStore(config.Hostname, config.RedisAddr, config.RedisTTL, config.RedisUser, config.RedisPass, config.RedisDB)
 	err := store.Ping()
 	if err != nil {
-		if strings.Contains(err.Error(), config.Addr) {
+		if strings.Contains(err.Error(), config.RedisAddr) {
 			logrus.Fatalf("failed to connect to redis: %s", err)
 		}
-		logrus.Fatalf("failed to connect to redis at %s: %s", config.Addr, err)
+		logrus.Fatalf("failed to connect to redis at %s: %s", config.RedisAddr, err)
 	}
 
 	providers := &static.Providers{
