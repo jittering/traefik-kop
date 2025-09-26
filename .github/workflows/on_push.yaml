@@ -59,7 +59,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eo pipefail
-          goreleaser release --clean --snapshot
+          goreleaser release --clean --snapshot --parallelism 2
           # Manually push docker images to :latest tag
           docker images --format '{{ .Repository }}:{{ .Tag }}' \
             | grep kop \
