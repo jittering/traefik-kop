@@ -97,6 +97,7 @@ GLOBAL OPTIONS:
    --bind-ip value        IP address to bind services to [$BIND_IP]
    --bind-interface value Network interface to derive bind IP (overrides auto-detect) [$BIND_INTERFACE]
    --redis-addr value     Redis address (default: "127.0.0.1:6379") [$REDIS_ADDR]
+   --redis-user value     Redis username (default: "default") [$REDIS_USER]
    --redis-pass value     Redis password (if needed) [$REDIS_PASS]
    --redis-db value       Redis DB number (default: 0) [$REDIS_DB]
    --redis-ttl value      Redis TTL (in seconds) (default: 0) [$REDIS_TTL]

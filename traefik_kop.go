@@ -86,7 +86,7 @@ func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider,
 
 func Start(config Config) {
 	dp := newDockerProvider(config)
-	store := NewRedisStore(config.Hostname, config.Addr, config.RedisTTL, config.Pass, config.DB)
+	store := NewRedisStore(config.Hostname, config.Addr, config.RedisTTL, config.User, config.Pass, config.DB)
 	err := store.Ping()
 	if err != nil {
 		if strings.Contains(err.Error(), config.Addr) {

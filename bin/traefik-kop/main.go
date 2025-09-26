@@ -77,6 +77,12 @@ func flags() {
 				EnvVars: []string{"REDIS_ADDR"},
 			},
 			&cli.StringFlag{
+				Name:    "redis-user",
+				Usage:   "Redis username",
+				Value:   "default",
+				EnvVars: []string{"REDIS_USER"},
+			},
+			&cli.StringFlag{
 				Name:    "redis-pass",
 				Usage:   "Redis password (if needed)",
 				EnvVars: []string{"REDIS_PASS"},
@@ -175,6 +181,7 @@ func doStart(c *cli.Context) error {
 		Hostname:     c.String("hostname"),
 		BindIP:       bindIP,
 		Addr:         c.String("redis-addr"),
+		User:         c.String("redis-user"),
 		Pass:         c.String("redis-pass"),
 		DB:           c.Int("redis-db"),
 		RedisTTL:     c.Int("redis-ttl"),

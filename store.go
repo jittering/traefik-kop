@@ -34,27 +34,22 @@ func collectKeys(m interface{}) []string {
 
 type RedisStore struct {
 	Hostname string
-	Addr     string
 	TTL      time.Duration // TTL in seconds, 0 means no TTL
-	Pass     string
-	DB       int
 
 	client     *redis.Client
 	lastConfig *dynamic.Configuration
 }
 
-func NewRedisStore(hostname string, addr string, ttl int, pass string, db int) TraefikStore {
+func NewRedisStore(hostname string, addr string, ttl int, user string, pass string, db int) TraefikStore {
 	logrus.Infof("creating new redis store at %s for hostname %s", addr, hostname)
 
 	store := &RedisStore{
 		Hostname: hostname,
-		Addr:     addr,
 		TTL:      time.Duration(ttl) * time.Second,
-		Pass:     pass,
-		DB:       db,
 
 		client: redis.NewClient(&redis.Options{
 			Addr:     addr,
+			Username: user,
 			Password: pass,
 			DB:       db,
 		}),
