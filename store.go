@@ -35,7 +35,7 @@ func collectKeys(m interface{}) []string {
 type RedisStore struct {
 	Hostname string
 	Addr     string
-	TTL      int // TTL in seconds, 0 means no TTL
+	TTL      time.Duration // TTL in seconds, 0 means no TTL
 	Pass     string
 	DB       int
 
@@ -49,7 +49,7 @@ func NewRedisStore(hostname string, addr string, ttl int, pass string, db int) T
 	store := &RedisStore{
 		Hostname: hostname,
 		Addr:     addr,
-		TTL:      ttl,
+		TTL:      time.Duration(ttl) * time.Second,
 		Pass:     pass,
 		DB:       db,
 
@@ -70,13 +70,6 @@ func (s *RedisStore) Ping() error {
 // e.g., traefik_http_routers@culture.local
 func (s RedisStore) sk(b string) string {
 	return fmt.Sprintf("traefik_%s@%s", b, s.Hostname)
-}
-
-func (s RedisStore) exp() time.Duration {
-	if s.TTL > 0 {
-		return time.Duration(s.TTL) * time.Second
-	}
-	return 0 // no expiration
 }
 
 func (s *RedisStore) Get(key string) (string, error) {
@@ -123,10 +116,9 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 	if err != nil {
 		return err
 	}
-	exp := s.exp()
 	for k, v := range kv {
-		logrus.Debugf("writing %s = %s", k, v)
-		s.client.Set(context.Background(), k, v, exp)
+		logrus.Debugf("writing %s = %s with TTL %s", k, v, s.TTL)
+		s.client.Set(context.Background(), k, v, s.TTL)
 	}
 
 	s.swapKeys(s.sk("http_middlewares"))
@@ -139,7 +131,7 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 	s.swapKeys(s.sk("udp_services"))
 
 	// Update sentinel key with current timestamp
-	s.client.Set(context.Background(), s.sk("kop_last_update"), time.Now().Unix(), exp)
+	s.client.Set(context.Background(), s.sk("kop_last_update"), time.Now().Unix(), s.TTL)
 
 	// Store a copy of the configuration in case redis restarts
 	configCopy := conf
