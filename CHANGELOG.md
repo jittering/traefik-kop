@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### New Features
+
+- Add `--bind-interface` (env: `BIND_INTERFACE`) to select the network interface from which to derive the bind IP when `--bind-ip` is not set. This requires the container to be run with `network_mode: host`.
+
 ## v0.17
 
 ### New Features

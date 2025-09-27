@@ -63,8 +63,12 @@ func flags() {
 			&cli.StringFlag{
 				Name:    "bind-ip",
 				Usage:   "IP address to bind services to",
-				Value:   getDefaultIP(),
 				EnvVars: []string{"BIND_IP"},
+			},
+			&cli.StringFlag{
+				Name:    "bind-interface",
+				Usage:   "Network interface to derive bind IP (overrides auto-detect)",
+				EnvVars: []string{"BIND_INTERFACE"},
 			},
 			&cli.StringFlag{
 				Name:    "redis-addr",
@@ -160,9 +164,16 @@ func doStart(c *cli.Context) error {
 
 	namespaces := splitStringArr(c.String("namespace"))
 
+	// Determine bind IP: precedence -> explicit --bind-ip -> --bind-interface -> auto-detect
+	bindIP := strings.TrimSpace(c.String("bind-ip"))
+	if bindIP == "" {
+		iface := strings.TrimSpace(c.String("bind-interface"))
+		bindIP = getDefaultIP(iface)
+	}
+
 	config := traefikkop.Config{
 		Hostname:     c.String("hostname"),
-		BindIP:       c.String("bind-ip"),
+		BindIP:       bindIP,
 		Addr:         c.String("redis-addr"),
 		Pass:         c.String("redis-pass"),
 		DB:           c.Int("redis-db"),
@@ -191,7 +202,14 @@ func getHostname() string {
 	return hostname
 }
 
-func getDefaultIP() string {
+func getDefaultIP(iface string) string {
+	// If a network interface is specified, attempt to get its primary IPv4 address
+	if strings.TrimSpace(iface) != "" {
+		if ip := GetInterfaceIP(iface); ip != nil {
+			return ip.String()
+		}
+		log.Warnf("failed to get IP for interface '%s'; falling back to auto-detect", iface)
+	}
 	ip := GetOutboundIP()
 	if ip == nil {
 		return ""
@@ -212,4 +230,36 @@ func GetOutboundIP() net.IP {
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
 	return localAddr.IP
+}
+
+// GetInterfaceIP returns the first non-loopback IPv4 address for the named interface
+func GetInterfaceIP(name string) net.IP {
+	iface, err := net.InterfaceByName(name)
+	if err != nil {
+		log.Warnf("unable to find interface '%s': %v", name, err)
+		return nil
+	}
+	addrs, err := iface.Addrs()
+	if err != nil {
+		log.Warnf("unable to list addresses for interface '%s': %v", name, err)
+		return nil
+	}
+	for _, a := range addrs {
+		var ip net.IP
+		switch v := a.(type) {
+		case *net.IPNet:
+			ip = v.IP
+		case *net.IPAddr:
+			ip = v.IP
+		}
+		if ip == nil || ip.IsLoopback() {
+			continue
+		}
+		ip = ip.To4()
+		if ip == nil {
+			continue // skip IPv6 for bind default
+		}
+		return ip
+	}
+	return nil
 }

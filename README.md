@@ -55,6 +55,8 @@ services:
     environment:
       - "REDIS_ADDR=192.168.1.50:6379"
       - "BIND_IP=192.168.1.75"
+      # Alternatively, derive from an interface (requires network_mode: host)
+      # - "BIND_INTERFACE=eth0"
 ```
 
 Then add the usual labels to your target service:
@@ -80,7 +82,7 @@ services:
       - "traefik.http.services.nginx.loadbalancer.server.port=8088"
 ```
 
-See also [bind-ip](#bind-ip) section below.
+See also the [IP Binding](#ip-binding) section below.
 
 ## Configuration
 
@@ -92,7 +94,8 @@ USAGE:
 
 GLOBAL OPTIONS:
    --hostname value       Hostname to identify this node in redis (default: "server.local") [$KOP_HOSTNAME]
-   --bind-ip value        IP address to bind services to (default: "auto.detected.ip.addr") [$BIND_IP]
+   --bind-ip value        IP address to bind services to [$BIND_IP]
+   --bind-interface value Network interface to derive bind IP (overrides auto-detect) [$BIND_INTERFACE]
    --redis-addr value     Redis address (default: "127.0.0.1:6379") [$REDIS_ADDR]
    --redis-pass value     Redis password (if needed) [$REDIS_PASS]
    --redis-db value       Redis DB number (default: 0) [$REDIS_DB]
@@ -106,7 +109,7 @@ GLOBAL OPTIONS:
    --version, -V          Print the version (default: false)
 ```
 
-Most important are the `bind-ip` and `redis-addr` flags.
+Most important are the `bind-ip`/`bind-interface` and `redis-addr` flags.
 
 ## IP Binding
 
@@ -116,8 +119,8 @@ order of precedence (highest first) and detailed descriptions of each setting.
 1. `kop.<service name>.bind.ip` label
 2. `kop.bind.ip` label
 3. Container networking IP
-4. `--bind-ip` CLI flag
-5. `BIND_IP` env var
+4. `--bind-ip` CLI flag (or `BIND_IP` env var)
+5. `--bind-interface` CLI flag (or `BIND_INTERFACE` env var), requires network_mode: host
 6. Auto-detected host IP
 
 ### bind-ip
@@ -130,6 +133,16 @@ than the usual method of using the internal docker-network IPs (by default
 When using host networking this can be auto-detected, however it is advisable in
 the majority of cases to manually set this to the desired IP address. This can
 be done using the docker image by exporting the `BIND_IP` environment variable.
+
+### bind-interface
+
+If you prefer to bind using the primary IPv4 address of a specific network
+interface, you can specify it via `--bind-interface` or the `BIND_INTERFACE`
+environment variable, for example `--bind-interface eth0`. This is used when
+`--bind-ip` is not provided. If the interface has multiple addresses, the first
+non-loopback IPv4 address is selected.
+
+This option requires that the container be run with  `network_mode: host` so that the interface is visible to the container.
 
 ### traefik-kop service labels
 
