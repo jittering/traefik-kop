@@ -24,6 +24,27 @@ logic. It reads the container labels from the local docker node and publishes
 them to a given `redis` instance. Simply configure your `traefik` node with a
 `redis` provider and point it to the same instance, as in the diagram above.
 
+## Contents
+
+- [traefik-kop](#traefik-kop)
+  - [Contents](#contents)
+  - [Usage](#usage)
+  - [Configuration](#configuration)
+  - [IP Binding](#ip-binding)
+    - [bind-ip](#bind-ip)
+    - [bind-interface](#bind-interface)
+    - [traefik-kop service labels](#traefik-kop-service-labels)
+    - [Load Balancer Merging](#load-balancer-merging)
+    - [Container Networking](#container-networking)
+  - [Service port binding](#service-port-binding)
+  - [Namespaces](#namespaces)
+    - [Namespace via label prefix](#namespace-via-label-prefix)
+  - [Docker API](#docker-api)
+    - [Traefik Docker Provider Config](#traefik-docker-provider-config)
+  - [Releasing](#releasing)
+  - [License](#license)
+
+
 ## Usage
 
 Configure `traefik` to use the redis provider, for example via `traefik.yml`:
