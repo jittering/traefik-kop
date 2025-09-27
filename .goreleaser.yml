@@ -44,7 +44,7 @@ dockers_v2:
       - linux/amd64
       - linux/arm/v6
       - linux/arm/v7
-      - linux/arm64/v8
+      - linux/arm64
     labels:
       "org.opencontainers.image.title": "{{ .ProjectName }}"
       "org.opencontainers.image.description": "{{ .ProjectName }}"
