@@ -16,6 +16,7 @@ require (
 	github.com/docker/docker v27.1.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/gofiber/fiber/v2 v2.52.5
+	github.com/opencontainers/image-spec v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/redis/go-redis/v9 v9.11.0
 	github.com/ryanuber/go-glob v1.0.0
@@ -24,6 +25,7 @@ require (
 	github.com/traefik/paerser v0.2.2
 	github.com/traefik/traefik/v2 v2.11.27
 	github.com/urfave/cli/v2 v2.27.6
+	github.com/valyala/fasthttp v1.54.0
 	golang.org/x/exp v0.0.0-20241210194714-1829a127f884
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -257,7 +259,6 @@ require (
 	github.com/nzdjb/go-metaname v1.0.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.20.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492 // indirect
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b // indirect
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5 // indirect
@@ -322,7 +323,6 @@ require (
 	github.com/unrolled/render v1.0.2 // indirect
 	github.com/unrolled/secure v1.0.9 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.54.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/vinyldns/go-vinyldns v0.9.16 // indirect
 	github.com/volcengine/volc-sdk-golang v1.0.199 // indirect

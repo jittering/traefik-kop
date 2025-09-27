@@ -165,3 +165,17 @@ services:
       # not explicitly set, let kop figure it out
       # - "traefik.http.services.ephemeral.loadbalancer.server.scheme=http"
       # - "traefik.http.services.ephemeral.loadbalancer.server.port=8099"
+
+  nginx_prefix:
+    image: "nginx:alpine"
+    restart: unless-stopped
+    ports:
+      - 8090:80
+    labels:
+      - "kop.baz.traefik.enable=true"
+      - "kop.baz.traefik.http.routers.nginx.rule=Host(`nginx.local`)"
+      - "kop.baz.traefik.http.routers.nginx.tls=true"
+      - "kop.baz.traefik.http.routers.nginx.tls.certresolver=default"
+      - "kop.baz.traefik.http.services.nginx.loadbalancer.server.scheme=http"
+      - "kop.baz.traefik.http.services.nginx.loadbalancer.server.port=8088"
+

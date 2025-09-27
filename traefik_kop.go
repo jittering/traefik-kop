@@ -85,9 +85,21 @@ func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider,
 }
 
 func Start(config Config) {
+	dockerClient, err := createDockerClient(config.DockerHost)
+	if err != nil {
+		logrus.Fatalf("failed to create docker client: %s", err)
+	}
+
+	if config.DockerPrefix != "" {
+		// use proxy to filter by label prefix
+		dockerProxy := createProxy(dockerClient, config.DockerPrefix)
+		_, dockerProxyAddr := dockerProxy.start()
+		config.DockerHost = dockerProxyAddr
+	}
+
 	dp := newDockerProvider(config)
 	store := NewRedisStore(config.Hostname, config.RedisAddr, config.RedisTTL, config.RedisUser, config.RedisPass, config.RedisDB)
-	err := store.Ping()
+	err = store.Ping()
 	if err != nil {
 		if strings.Contains(err.Error(), config.RedisAddr) {
 			logrus.Fatalf("failed to connect to redis: %s", err)
@@ -99,11 +111,6 @@ func Start(config Config) {
 		Docker: dp,
 	}
 	providerAggregator := aggregator.NewProviderAggregator(*providers)
-
-	dockerClient, err := createDockerClient(config.DockerHost)
-	if err != nil {
-		logrus.Fatalf("failed to create docker client: %s", err)
-	}
 
 	ctx := context.Background()
 	routinesPool := safe.NewPool(ctx)
