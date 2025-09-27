@@ -1,3 +1,4 @@
 FROM scratch
 ENTRYPOINT ["/traefik-kop"]
-COPY traefik-kop /traefik-kop
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/traefik-kop /traefik-kop

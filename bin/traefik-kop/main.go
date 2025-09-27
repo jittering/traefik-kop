@@ -77,6 +77,12 @@ func flags() {
 				EnvVars: []string{"REDIS_ADDR"},
 			},
 			&cli.StringFlag{
+				Name:    "redis-user",
+				Usage:   "Redis username",
+				Value:   "default",
+				EnvVars: []string{"REDIS_USER"},
+			},
+			&cli.StringFlag{
 				Name:    "redis-pass",
 				Usage:   "Redis password (if needed)",
 				EnvVars: []string{"REDIS_PASS"},
@@ -174,9 +180,11 @@ func doStart(c *cli.Context) error {
 	config := traefikkop.Config{
 		Hostname:     c.String("hostname"),
 		BindIP:       bindIP,
-		Addr:         c.String("redis-addr"),
-		Pass:         c.String("redis-pass"),
-		DB:           c.Int("redis-db"),
+		RedisAddr:    c.String("redis-addr"),
+		RedisUser:    c.String("redis-user"),
+		RedisPass:    c.String("redis-pass"),
+		RedisDB:      c.Int("redis-db"),
+		RedisTTL:     c.Int("redis-ttl"),
 		DockerHost:   c.String("docker-host"),
 		DockerConfig: c.String("docker-config"),
 		PollInterval: c.Int64("poll-interval"),

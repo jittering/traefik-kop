@@ -17,10 +17,11 @@ type Config struct {
 	DockerHost   string
 	Hostname     string
 	BindIP       string
-	Addr         string
+	RedisAddr    string
 	RedisTTL     int
-	Pass         string
-	DB           int
+	RedisUser    string
+	RedisPass    string
+	RedisDB      int
 	PollInterval int64
 	Namespace    []string
 }
