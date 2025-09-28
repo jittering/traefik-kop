@@ -65,8 +65,17 @@ jobs:
         run: |
           set -eo pipefail
           goreleaser release --clean --snapshot --parallelism 2
-          # Manually push docker images to :latest tag
+          # Manually push docker images
           docker images --format '{{ .Repository }}:{{ .Tag }}' \
             | grep kop \
             | grep -v none \
             | xargs -n 1 docker push
+
+      - name: Cleanup local docker iamges
+        run: |
+          set -eo pipefail
+          docker images \
+            | grep ghcr.io/jittering/traefik-kop \
+            | awk '{print $3}' \
+            | sort | uniq \
+            | xargs docker rmi -f
