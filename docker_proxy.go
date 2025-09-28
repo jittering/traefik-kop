@@ -168,7 +168,7 @@ func (s *DockerProxyServer) start() (*fiber.App, string) {
 	app.Get("/v*/containers/json", s.handleContainersList)
 	app.Get("/v*/containers/:id/json", s.handleContainerInspect)
 	app.Get("/v*/events", s.handleEvents)
-	app.Get("/*", s.handleNotFound)
+	app.All("/*", s.handleNotFound)
 
 	listener, err := getAvailablePort()
 	if err != nil {
