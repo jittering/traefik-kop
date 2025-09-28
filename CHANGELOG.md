@@ -1,10 +1,12 @@
 # Changelog
 
-## Unreleased
+## v0.18
 
 ### New Features
 
-- Add `--bind-interface` (env: `BIND_INTERFACE`) to select the network interface from which to derive the bind IP when `--bind-ip` is not set. This requires the container to be run with `network_mode: host`.
+- Add `--bind-interface` (env: `BIND_INTERFACE`) to select the network interface from which to derive the bind IP when `--bind-ip` is not set. This requires the container to be run with `network_mode: host`. [#64, thanks @libnewton](https://github.com/jittering/traefik-kop/pull/58)
+- Allow passing redis username via `--redis-user` (env: `REDIS_USER`) [#69](https://github.com/jittering/traefik-kop/pull/69)
+- Allow filtering traefik labels using prefix [#70](https://github.com/jittering/traefik-kop/pull/70)
 
 ## v0.17
 
