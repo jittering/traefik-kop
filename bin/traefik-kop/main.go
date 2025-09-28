@@ -110,6 +110,11 @@ func flags() {
 				Usage:   "Docker provider config (file must end in .yaml)",
 				EnvVars: []string{"DOCKER_CONFIG"},
 			},
+			&cli.StringFlag{
+				Name:    "docker-prefix",
+				Usage:   "Docker label prefix",
+				EnvVars: []string{"DOCKER_PREFIX"},
+			},
 			&cli.Int64Flag{
 				Name:    "poll-interval",
 				Usage:   "Poll interval for refreshing container list",
@@ -187,6 +192,7 @@ func doStart(c *cli.Context) error {
 		RedisTTL:     c.Int("redis-ttl"),
 		DockerHost:   c.String("docker-host"),
 		DockerConfig: c.String("docker-config"),
+		DockerPrefix: c.String("docker-prefix"),
 		PollInterval: c.Int64("poll-interval"),
 		Namespace:    namespaces,
 	}

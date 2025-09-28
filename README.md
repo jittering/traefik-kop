@@ -24,6 +24,27 @@ logic. It reads the container labels from the local docker node and publishes
 them to a given `redis` instance. Simply configure your `traefik` node with a
 `redis` provider and point it to the same instance, as in the diagram above.
 
+## Contents
+
+- [traefik-kop](#traefik-kop)
+  - [Contents](#contents)
+  - [Usage](#usage)
+  - [Configuration](#configuration)
+  - [IP Binding](#ip-binding)
+    - [bind-ip](#bind-ip)
+    - [bind-interface](#bind-interface)
+    - [traefik-kop service labels](#traefik-kop-service-labels)
+    - [Load Balancer Merging](#load-balancer-merging)
+    - [Container Networking](#container-networking)
+  - [Service port binding](#service-port-binding)
+  - [Namespaces](#namespaces)
+    - [Namespace via label prefix](#namespace-via-label-prefix)
+  - [Docker API](#docker-api)
+    - [Traefik Docker Provider Config](#traefik-docker-provider-config)
+  - [Releasing](#releasing)
+  - [License](#license)
+
+
 ## Usage
 
 Configure `traefik` to use the redis provider, for example via `traefik.yml`:
@@ -103,6 +124,7 @@ GLOBAL OPTIONS:
    --redis-ttl value      Redis TTL (in seconds) (default: 0) [$REDIS_TTL]
    --docker-host value    Docker endpoint (default: "unix:///var/run/docker.sock") [$DOCKER_HOST]
    --docker-config value  Docker provider config (file must end in .yaml) [$DOCKER_CONFIG]
+   --docker-prefix value  Docker label prefix [$DOCKER_PREFIX]
    --poll-interval value  Poll interval for refreshing container list (default: 60) [$KOP_POLL_INTERVAL]
    --namespace value      Namespace to process containers for [$NAMESPACE]
    --verbose              Enable debug logging (default: false) [$VERBOSE, $DEBUG]
@@ -265,6 +287,43 @@ services:
     labels:
       # will be exposed because it has namespace 'staging'
       - "kop.namespace=staging,experimental"
+```
+
+### Namespace via label prefix
+
+An alternative method of namespacing is to add a custom prefix for your traefik-related labels. This
+works as an *inclusion* filter for `traefik-kop` and an *exclusion* filter for `traefik`. This can
+be useful in a scenario here you are running both `traefik` and `traefik-kop` side-by-side on the
+same host.
+
+```yaml
+services:
+  nginx:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers..."
+      - "traefik..."
+```
+
+becomes
+
+```yaml
+services:
+  traefik-kop:
+    image: "ghcr.io/jittering/traefik-kop:latest"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - "REDIS_ADDR=192.168.1.50:6379"
+      - "BIND_IP=192.168.1.75"
+      - "DOCKER_PREFIX=kop.public"
+
+  nginx:
+    labels:
+      - "kop.public.traefik.enable=true"
+      - "kop.public.traefik.http.routers..."
+      - "kop.public.traefik..."
 ```
 
 

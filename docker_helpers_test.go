@@ -126,20 +126,6 @@ func (d DockerAPIStub) NetworkList(ctx context.Context, options types.NetworkLis
 	return nil, nil
 }
 
-func getAvailablePort() (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		return 0, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
-}
-
 func createHTTPServer() (*fiber.App, string) {
 	app := fiber.New()
 	app.Use(logger.New())
@@ -171,15 +157,14 @@ func createHTTPServer() (*fiber.App, string) {
 		return c.JSON(container)
 	})
 
-	port, err := getAvailablePort()
+	listener, err := getAvailablePort()
 	if err != nil {
 		log.Fatal(err)
 	}
-	// log.Println("Available port:", port)
 
-	go app.Listen(fmt.Sprintf(":%d", port))
+	go app.Listener(listener)
 
-	dockerEndpoint := fmt.Sprintf("http://localhost:%d", port)
+	dockerEndpoint := fmt.Sprintf("http://localhost:%d", listener.Addr().(*net.TCPAddr).Port)
 
 	return app, dockerEndpoint
 }

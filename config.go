@@ -15,6 +15,9 @@ import (
 type Config struct {
 	DockerConfig string
 	DockerHost   string
+
+	// prefix for traefik labels to accept
+	DockerPrefix string
 	Hostname     string
 	BindIP       string
 	RedisAddr    string
