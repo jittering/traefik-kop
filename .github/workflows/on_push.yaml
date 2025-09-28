@@ -1,8 +1,9 @@
 name: on-push
 
 on:
-  create: {}
-  push: {}
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
