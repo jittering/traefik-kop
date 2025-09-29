@@ -46,8 +46,20 @@ jobs:
           go-version: ~1.25
           cache: false
 
-      - uses: actions/cache@v4
+      - name: Remote cache
+        uses: actions/cache@v4
+        if: ${{ runner.environment == 'github-hosted' }}
         with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+      - name: Local cache
+        uses: actions-self-hosted/cache@v4
+        if: ${{ runner.environment == 'self-hosted' }}
+        with:
+          cache-dir: /local-cache
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
@@ -59,23 +71,45 @@ jobs:
           version: latest
           install-only: true
 
-      - name: Run GoReleaser
+      - name: Build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eo pipefail
           goreleaser release --clean --snapshot --parallelism 2
+
+      - name: Push docker images
+        if: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
           # Manually push docker images
           docker images --format '{{ .Repository }}:{{ .Tag }}' \
             | grep kop \
             | grep -v none \
             | xargs -n 1 docker push
 
-      - name: Cleanup local docker iamges
+      - name: Cleanup local docker images
+        if: ${{ runner.environment == 'self-hosted' }}
         run: |
-          set -eo pipefail
+          # traefik-kop images
           docker images \
             | grep ghcr.io/jittering/traefik-kop \
             | awk '{print $3}' \
             | sort | uniq \
-            | xargs docker rmi -f
+            | xargs -r docker rmi -f
+
+          # runner images
+          docker images \
+            | grep myoung34/github-runner \
+            | grep none \
+            | awk '{print $3}' \
+            | sort | uniq \
+            | xargs -r docker rmi -f
+
+      - name: Cleanup old images from registry
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          tags: "*-next-*"
+          older-than: "30 days"
+          delete-untagged: true
