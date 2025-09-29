@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -21,8 +20,8 @@ import (
 
 type dockerCache struct {
 	client  client.APIClient
-	list    []types.Container
-	details map[string]types.ContainerJSON
+	list    []container.Summary
+	details map[string]container.InspectResponse
 	expires time.Time
 }
 
@@ -66,7 +65,7 @@ func getClientOpts(endpoint string) ([]client.Opt, error) {
 func (dc *dockerCache) populate() error {
 	if time.Now().After(dc.expires) {
 		dc.list = nil
-		dc.details = make(map[string]types.ContainerJSON)
+		dc.details = make(map[string]container.InspectResponse)
 	}
 
 	if dc.list == nil {
@@ -78,7 +77,7 @@ func (dc *dockerCache) populate() error {
 	}
 
 	for _, c := range dc.list {
-		var container types.ContainerJSON
+		var container container.InspectResponse
 		var ok bool
 		if container, ok = dc.details[c.ID]; !ok {
 			var err error
@@ -103,10 +102,10 @@ func (dc *dockerCache) populate() error {
 }
 
 // looks up the docker container by finding the matching service or router traefik label
-func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string, routerName string) (types.ContainerJSON, error) {
+func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string, routerName string) (container.InspectResponse, error) {
 	err := dc.populate()
 	if err != nil {
-		return types.ContainerJSON{}, err
+		return container.InspectResponse{}, err
 	}
 
 	svcName = stripDocker(svcName)
@@ -124,11 +123,11 @@ func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string
 		}
 	}
 
-	return types.ContainerJSON{}, errors.Errorf("service label not found for %s/%s", svcType, svcName)
+	return container.InspectResponse{}, errors.Errorf("service label not found for %s/%s", svcType, svcName)
 }
 
 // Check if the port is explicitly set via label
-func isPortSet(container types.ContainerJSON, svcType string, svcName string) string {
+func isPortSet(container container.InspectResponse, svcType string, svcName string) string {
 	svcName = stripDocker(svcName)
 	needle := fmt.Sprintf("traefik.%s.services.%s.loadbalancer.server.port", svcType, svcName)
 	return container.Config.Labels[needle]
@@ -145,7 +144,7 @@ func isPortSet(container types.ContainerJSON, svcType string, svcName string) st
 // If more than one port is bound (e.g., for a service like minio), then this
 // detection will fail. Instead, the user should explicitly set the port in the
 // label.
-func getPortBinding(container types.ContainerJSON) (string, error) {
+func getPortBinding(container container.InspectResponse) (string, error) {
 	log.Debug().Msg("looking for port in host config bindings")
 	numBindings := len(container.HostConfig.PortBindings)
 	log.Debug().Msgf("found %d host-port bindings", numBindings)

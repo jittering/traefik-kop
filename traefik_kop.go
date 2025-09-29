@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/rs/zerolog/log"
 	ptypes "github.com/traefik/paerser/types"
@@ -65,7 +65,7 @@ func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider,
 		dc := &dockerCache{
 			client:  dockerClient,
 			list:    nil,
-			details: make(map[string]types.ContainerJSON),
+			details: make(map[string]container.InspectResponse),
 		}
 
 		filterServices(dc, &conf, config.Namespace)
@@ -146,7 +146,7 @@ func Start(config Config) {
 	select {} // go forever
 }
 
-func keepContainer(ns []string, container types.ContainerJSON) bool {
+func keepContainer(ns []string, container container.InspectResponse) bool {
 	containerNS := splitStringArr(container.Config.Labels["kop.namespace"])
 	if len(ns) == 0 && len(containerNS) == 0 {
 		return true
