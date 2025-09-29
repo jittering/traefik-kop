@@ -98,7 +98,7 @@ jobs:
             | grep ghcr.io/jittering/traefik-kop \
             | awk '{print $3}' \
             | sort | uniq \
-            | xargs docker rmi -f
+            | xargs -r docker rmi -f
 
           # runner images
           docker images \
@@ -106,4 +106,4 @@ jobs:
             | grep none \
             | awk '{print $3}' \
             | sort | uniq \
-            | xargs docker rmi -f
+            | xargs -r docker rmi -f
