@@ -71,12 +71,18 @@ jobs:
           version: latest
           install-only: true
 
-      - name: Run GoReleaser
+      - name: Build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eo pipefail
           goreleaser release --clean --snapshot --parallelism 2
+
+      - name: Push docker images
+        if: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
           # Manually push docker images
           docker images --format '{{ .Repository }}:{{ .Tag }}' \
             | grep kop \
@@ -84,10 +90,20 @@ jobs:
             | xargs -n 1 docker push
 
       - name: Cleanup local docker images
+        if: ${{ runner.environment == 'self-hosted' }}
         run: |
           set -eo pipefail
+          # traefik-kop images
           docker images \
             | grep ghcr.io/jittering/traefik-kop \
+            | awk '{print $3}' \
+            | sort | uniq \
+            | xargs docker rmi -f
+
+          # runner images
+          docker images \
+            | grep myoung34/github-runner \
+            | grep none \
             | awk '{print $3}' \
             | sort | uniq \
             | xargs docker rmi -f
