@@ -106,3 +106,10 @@ jobs:
             | awk '{print $3}' \
             | sort | uniq \
             | xargs -r docker rmi -f
+
+      - name: Cleanup old images from registry
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          tags: "*-next-*"
+          older-than: "30 days"
+          delete-untagged: true
