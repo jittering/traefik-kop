@@ -146,10 +146,13 @@ func setupLogging(debug bool) {
 	if debug {
 		logrus.SetLevel(logrus.DebugLevel)
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		log.Logger = log.Logger.Level(zerolog.DebugLevel)
 	} else {
 		logrus.SetLevel(logrus.InfoLevel)
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		log.Logger = log.Logger.Level(zerolog.InfoLevel)
 	}
+	zerolog.DefaultContextLogger = &log.Logger
 
 	formatter := &logrus.TextFormatter{DisableColors: true, FullTimestamp: true, DisableSorting: true}
 	logrus.SetFormatter(formatter)
