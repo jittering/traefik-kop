@@ -42,7 +42,7 @@ type RedisStore struct {
 }
 
 func NewRedisStore(hostname string, addr string, ttl int, user string, pass string, db int) TraefikStore {
-	log.Info().Msgf("creating new redis store at %s for hostname %s", addr, hostname)
+	log.Info().Msgf("creating new redis store at %s for hostname %s wtih %dsec TTL", addr, hostname, ttl)
 
 	store := &RedisStore{
 		Hostname: hostname,
@@ -113,7 +113,7 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 		return err
 	}
 	for k, v := range kv {
-		log.Debug().Msgf("writing %s = %s with TTL %s", k, v, s.TTL)
+		log.Debug().Msgf("writing %s = %s", k, v)
 		s.client.Set(context.Background(), k, v, s.TTL)
 	}
 
