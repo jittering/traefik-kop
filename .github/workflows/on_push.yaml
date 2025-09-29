@@ -92,7 +92,6 @@ jobs:
       - name: Cleanup local docker images
         if: ${{ runner.environment == 'self-hosted' }}
         run: |
-          set -eo pipefail
           # traefik-kop images
           docker images \
             | grep ghcr.io/jittering/traefik-kop \
