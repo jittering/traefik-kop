@@ -12,8 +12,9 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	"github.com/traefik/traefik/v2/pkg/provider/docker"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/traefik/traefik/v3/pkg/provider/docker"
 )
 
 // Copied from traefik. See docker provider package for original impl
@@ -117,7 +118,7 @@ func (dc *dockerCache) findContainerByServiceName(svcType string, svcName string
 		routerNeedle := fmt.Sprintf("traefik.%s.routers.%s.", svcType, routerName)
 		for k := range container.Config.Labels {
 			if strings.HasPrefix(k, svcNeedle) || (routerName != "" && strings.HasPrefix(k, routerNeedle)) {
-				logrus.Debugf("found container '%s' (%s) for service '%s'", container.Name, container.ID, svcName)
+				log.Debug().Msgf("found container '%s' (%s) for service '%s'", container.Name, container.ID, svcName)
 				return container, nil
 			}
 		}
@@ -145,9 +146,9 @@ func isPortSet(container types.ContainerJSON, svcType string, svcName string) st
 // detection will fail. Instead, the user should explicitly set the port in the
 // label.
 func getPortBinding(container types.ContainerJSON) (string, error) {
-	logrus.Debugln("looking for port in host config bindings")
+	log.Debug().Msg("looking for port in host config bindings")
 	numBindings := len(container.HostConfig.PortBindings)
-	logrus.Debugf("found %d host-port bindings", numBindings)
+	log.Debug().Msgf("found %d host-port bindings", numBindings)
 	if numBindings > 1 {
 		return "", errors.Errorf("found more than one host-port binding for container '%s' (%s)", container.Name, portBindingString(container.HostConfig.PortBindings))
 	}
@@ -156,42 +157,42 @@ func getPortBinding(container types.ContainerJSON) (string, error) {
 			return "", errors.Errorf("found more than one host-port binding for container '%s' (%s)", container.Name, portBindingString(container.HostConfig.PortBindings))
 		}
 		if v[0].HostPort != "" {
-			logrus.Debugf("found host-port binding %s", v[0].HostPort)
+			log.Debug().Msgf("found host-port binding %s", v[0].HostPort)
 			return v[0].HostPort, nil
 		}
 	}
 
 	// check for a randomly set port via --publish-all
 	if container.NetworkSettings != nil && len(container.NetworkSettings.Ports) == 1 {
-		logrus.Debugln("looking for [randomly set] port in network settings")
+		log.Debug().Msg("looking for [randomly set] port in network settings")
 		for _, v := range container.NetworkSettings.Ports {
 			if len(v) > 0 {
 				port := v[0].HostPort
 				if port != "" {
 					if len(v) > 1 {
-						logrus.Warnf("found %d port(s); trying the first one", len(v))
+						log.Warn().Msgf("found %d port(s); trying the first one", len(v))
 					}
 					return port, nil
 				}
 			}
 		}
 	} else {
-		logrus.Debug("skipping network settings check, no ports found")
+		log.Debug().Msg("skipping network settings check, no ports found")
 	}
 
 	return "", errors.Errorf("no host-port binding found for container '%s'", container.Name)
 }
 
 func logJSON(name string, v interface{}) {
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
+	log.Debug().Func(func(e *zerolog.Event) {
 		data, err := json.MarshalIndent(v, "", "  ")
 		if err != nil {
-			logrus.Debug("failed to marshal: ", err)
+			e.Msgf("failed to marshal: %s", err)
 		} else {
-			logrus.Debugf("json dump of %s", name)
+			e.Msgf("json dump of %s", name)
 			fmt.Println(string(data))
 		}
-	}
+	})
 }
 
 // Convert host:container port binding map to a compact printable string

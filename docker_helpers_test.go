@@ -24,10 +24,10 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/ryanuber/go-glob"
 	"github.com/stretchr/testify/assert"
-	"github.com/traefik/traefik/v2/pkg/config/dynamic"
-	"github.com/traefik/traefik/v2/pkg/provider/docker"
-	"github.com/traefik/traefik/v2/pkg/safe"
-	"github.com/traefik/traefik/v2/pkg/server"
+	"github.com/traefik/traefik/v3/pkg/config/dynamic"
+	"github.com/traefik/traefik/v3/pkg/provider/docker"
+	"github.com/traefik/traefik/v3/pkg/safe"
+	"github.com/traefik/traefik/v3/pkg/server"
 )
 
 type testStore struct {

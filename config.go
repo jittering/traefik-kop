@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	"github.com/traefik/traefik/v2/pkg/provider/docker"
+	"github.com/rs/zerolog/log"
+	"github.com/traefik/traefik/v3/pkg/provider/docker"
 	"gopkg.in/yaml.v3"
 )
 
@@ -44,14 +44,14 @@ func loadDockerConfig(input string) (*docker.Provider, error) {
 		// see if given filename
 		_, err := os.Stat(input)
 		if err == nil {
-			logrus.Debugf("loading docker config from file %s", input)
+			log.Debug().Msgf("loading docker config from file %s", input)
 			r, err = os.Open(input)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to open docker config %s", input)
 			}
 		}
 	} else {
-		logrus.Debugf("loading docker config from yaml input")
+		log.Debug().Msgf("loading docker config from yaml input")
 		r = strings.NewReader(input) // treat as direct yaml input
 	}
 

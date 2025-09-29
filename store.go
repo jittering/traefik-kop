@@ -9,8 +9,9 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
-	"github.com/traefik/traefik/v2/pkg/config/dynamic"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 )
 
 type TraefikStore interface {
@@ -41,7 +42,7 @@ type RedisStore struct {
 }
 
 func NewRedisStore(hostname string, addr string, ttl int, user string, pass string, db int) TraefikStore {
-	logrus.Infof("creating new redis store at %s for hostname %s", addr, hostname)
+	log.Info().Msgf("creating new redis store at %s for hostname %s", addr, hostname)
 
 	store := &RedisStore{
 		Hostname: hostname,
@@ -112,7 +113,7 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 		return err
 	}
 	for k, v := range kv {
-		logrus.Debugf("writing %s = %s with TTL %s", k, v, s.TTL)
+		log.Debug().Msgf("writing %s = %s with TTL %s", k, v, s.TTL)
 		s.client.Set(context.Background(), k, v, s.TTL)
 	}
 
@@ -141,7 +142,7 @@ func (s *RedisStore) NeedsUpdate() bool {
 	// Check if sentinel key exists
 	exists, err := s.client.Exists(context.Background(), s.sk("kop_last_update")).Result()
 	if err != nil {
-		logrus.Warnf("Failed to check Redis status: %s", err)
+		log.Warn().Msgf("Failed to check Redis status: %s", err)
 	}
 	return exists == 0
 }
@@ -153,7 +154,7 @@ func (s *RedisStore) KeepConfAlive() error {
 	}
 
 	if s.NeedsUpdate() {
-		logrus.Warnln("Redis seems to have restarted and needs to be updated. Pushing last known configuration")
+		log.Warn().Msg("Redis seems to have restarted and needs to be updated. Pushing last known configuration")
 		return s.Store(*s.lastConfig)
 	}
 
@@ -185,12 +186,12 @@ func (s *RedisStore) removeKeys(setkey string, keys []string) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	if logrus.IsLevelEnabled(logrus.DebugLevel) {
-		logrus.Debugf("removing keys from %s: %s", setkey, strings.Join(keys, ","))
-	}
+	log.Debug().Func(func(e *zerolog.Event) {
+		e.Msgf("removing keys from %s: %s", setkey, strings.Join(keys, ","))
+	})
 	for _, removeKey := range keys {
 		keyPath := s.k(setkey, removeKey) + "/*"
-		logrus.Debugf("removing keys matching %s", keyPath)
+		log.Debug().Msgf("removing keys matching %s", keyPath)
 		res, err := s.client.Keys(context.Background(), keyPath).Result()
 		if err != nil {
 			return errors.Wrap(err, "fetch failed")

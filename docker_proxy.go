@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"strings"
@@ -16,7 +15,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
 
@@ -132,13 +131,13 @@ func (s *DockerProxyServer) handleEvents(c *fiber.Ctx) error {
 
 				err := encoder.Encode(event)
 				if err != nil {
-					logrus.Errorf("Error encoding event: %v", err)
+					log.Error().Msgf("Error encoding event: %v", err)
 				}
 			case err := <-errCh:
 				if err != nil {
 					e := encoder.Encode(err)
 					if e != nil {
-						logrus.Errorf("Error encoding error: %v", e)
+						log.Error().Msgf("Error encoding error: %v", e)
 					}
 					return
 				}
@@ -154,7 +153,7 @@ func (s *DockerProxyServer) handleEvents(c *fiber.Ctx) error {
 }
 
 func (s *DockerProxyServer) handleNotFound(c *fiber.Ctx) error {
-	logrus.Warnf("Unhandled request: %s %s", c.Method(), c.OriginalURL())
+	log.Warn().Msgf("Unhandled request: %s %s", c.Method(), c.OriginalURL())
 	return c.Status(fiber.StatusNotFound).SendString("Not Found")
 }
 
@@ -172,7 +171,7 @@ func (s *DockerProxyServer) start() (*fiber.App, string) {
 
 	listener, err := getAvailablePort()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err)
 	}
 
 	go app.Listener(listener)

@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	"github.com/traefik/traefik/v2/pkg/config/dynamic"
+	"github.com/rs/zerolog/log"
+	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 )
 
 type KV struct {
@@ -122,7 +122,7 @@ func walk(kv *KV, path string, obj interface{}, pos string) {
 		kv.add(stringifyFloat(val.Float()), path)
 
 	default:
-		logrus.Warnf("unhandled kind %s: %#v\n", val.Kind(), obj)
+		log.Warn().Msgf("unhandled kind %s: %#v\n", val.Kind(), obj)
 	}
 
 }
