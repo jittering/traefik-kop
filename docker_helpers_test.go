@@ -24,10 +24,10 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/ryanuber/go-glob"
 	"github.com/stretchr/testify/assert"
-	"github.com/traefik/traefik/v2/pkg/config/dynamic"
-	"github.com/traefik/traefik/v2/pkg/provider/docker"
-	"github.com/traefik/traefik/v2/pkg/safe"
-	"github.com/traefik/traefik/v2/pkg/server"
+	"github.com/traefik/traefik/v3/pkg/config/dynamic"
+	"github.com/traefik/traefik/v3/pkg/provider/docker"
+	"github.com/traefik/traefik/v3/pkg/safe"
+	"github.com/traefik/traefik/v3/pkg/server"
 )
 
 type testStore struct {
@@ -84,8 +84,8 @@ func (s *testStore) Store(conf dynamic.Configuration) error {
 }
 
 type DockerAPIStub struct {
-	containers     []types.Container
-	containersJSON map[string]types.ContainerJSON
+	containers     []container.Summary
+	containersJSON map[string]container.InspectResponse
 }
 
 func (d DockerAPIStub) ServerVersion(ctx context.Context) (types.Version, error) {
@@ -96,31 +96,31 @@ func (d DockerAPIStub) ServerVersion(ctx context.Context) (types.Version, error)
 	}, nil
 }
 
-func (d DockerAPIStub) Events(ctx context.Context, options types.EventsOptions) (<-chan events.Message, <-chan error) {
+func (d DockerAPIStub) Events(ctx context.Context, options events.ListOptions) (<-chan events.Message, <-chan error) {
 	// Implement your logic here
 	fmt.Println("Events")
 	return nil, nil
 }
 
-func (d DockerAPIStub) ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
+func (d DockerAPIStub) ContainerList(ctx context.Context, options container.ListOptions) ([]container.Summary, error) {
 	// Implement your logic here
 	fmt.Println("ContainerList")
 	return d.containers, nil
 }
 
-func (d DockerAPIStub) ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error) {
+func (d DockerAPIStub) ContainerInspect(ctx context.Context, containerID string) (container.InspectResponse, error) {
 	// Implement your logic here
 	fmt.Println("ContainerInspect", containerID)
 	return d.containersJSON[containerID], nil
 }
 
-func (d DockerAPIStub) ServiceList(ctx context.Context, options types.ServiceListOptions) ([]swarm.Service, error) {
+func (d DockerAPIStub) ServiceList(ctx context.Context, options swarm.ServiceListOptions) ([]swarm.Service, error) {
 	// Implement your logic here
 	fmt.Println("ServiceList")
 	return nil, nil
 }
 
-func (d DockerAPIStub) NetworkList(ctx context.Context, options types.NetworkListOptions) ([]types.NetworkResource, error) {
+func (d DockerAPIStub) NetworkList(ctx context.Context, options network.ListOptions) ([]network.Summary, error) {
 	// Implement your logic here
 	fmt.Println("NetworkList")
 	return nil, nil
@@ -198,10 +198,10 @@ func loadYAMLWithEnv(yaml []byte, env map[string]string) (*compose.Config, error
 }
 
 // convert compose services to containers
-func createContainers(composeConfig *compose.Config) []types.Container {
-	containers := make([]types.Container, 0)
+func createContainers(composeConfig *compose.Config) []container.Summary {
+	containers := make([]container.Summary, 0)
 	for _, service := range composeConfig.Services {
-		container := types.Container{
+		container := container.Summary{
 			ID:     service.Name,
 			Labels: service.Labels,
 			State:  "running",
@@ -224,10 +224,10 @@ func createContainers(composeConfig *compose.Config) []types.Container {
 }
 
 // convert compose services to containersJSON
-func createContainersJSON(composeConfig *compose.Config) map[string]types.ContainerJSON {
-	containersJSON := make(map[string]types.ContainerJSON)
+func createContainersJSON(composeConfig *compose.Config) map[string]container.InspectResponse {
+	containersJSON := make(map[string]container.InspectResponse)
 	for _, service := range composeConfig.Services {
-		containerJSON := types.ContainerJSON{
+		containerJSON := container.InspectResponse{
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:   service.Name,
 				Name: service.Name,
@@ -254,7 +254,6 @@ func createContainersJSON(composeConfig *compose.Config) map[string]types.Contai
 						IPAddress: "10.10.10.5",
 					},
 				},
-				NetworkSettingsBase: types.NetworkSettingsBase{},
 			},
 		}
 

@@ -7,8 +7,9 @@ import (
 	"strings"
 
 	traefikkop "github.com/jittering/traefik-kop"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/sirupsen/logrus"
-	"github.com/traefik/traefik/v2/pkg/log"
 	"github.com/urfave/cli/v2"
 )
 
@@ -137,20 +138,24 @@ func flags() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("Application error")
 	}
 }
 
 func setupLogging(debug bool) {
 	if debug {
 		logrus.SetLevel(logrus.DebugLevel)
-		log.SetLevel(logrus.DebugLevel)
-		log.WithoutContext().WriterLevel(logrus.DebugLevel)
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		log.Logger = log.Logger.Level(zerolog.DebugLevel)
+	} else {
+		logrus.SetLevel(logrus.InfoLevel)
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		log.Logger = log.Logger.Level(zerolog.InfoLevel)
 	}
+	zerolog.DefaultContextLogger = &log.Logger
 
 	formatter := &logrus.TextFormatter{DisableColors: true, FullTimestamp: true, DisableSorting: true}
 	logrus.SetFormatter(formatter)
-	log.SetFormatter(formatter)
 }
 
 func main() {
@@ -198,11 +203,11 @@ func doStart(c *cli.Context) error {
 	}
 
 	if config.BindIP == "" {
-		log.Fatal("Bind IP cannot be empty")
+		log.Fatal().Msg("Bind IP cannot be empty")
 	}
 
 	setupLogging(c.Bool("verbose"))
-	logrus.Debugf("using traefik-kop config: %s", fmt.Sprintf("%+v", config))
+	log.Debug().Msgf("using traefik-kop config: %s", fmt.Sprintf("%+v", config))
 
 	traefikkop.Start(config)
 	return nil
@@ -222,7 +227,7 @@ func getDefaultIP(iface string) string {
 		if ip := GetInterfaceIP(iface); ip != nil {
 			return ip.String()
 		}
-		log.Warnf("failed to get IP for interface '%s'; falling back to auto-detect", iface)
+		log.Warn().Msgf("failed to get IP for interface '%s'; falling back to auto-detect", iface)
 	}
 	ip := GetOutboundIP()
 	if ip == nil {
@@ -236,7 +241,7 @@ func getDefaultIP(iface string) string {
 func GetOutboundIP() net.IP {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		log.Warnf("failed to detect outbound IP: %s", err)
+		log.Warn().Msgf("failed to detect outbound IP: %s", err)
 		return nil
 	}
 	defer conn.Close()
@@ -250,12 +255,12 @@ func GetOutboundIP() net.IP {
 func GetInterfaceIP(name string) net.IP {
 	iface, err := net.InterfaceByName(name)
 	if err != nil {
-		log.Warnf("unable to find interface '%s': %v", name, err)
+		log.Warn().Msgf("unable to find interface '%s': %v", name, err)
 		return nil
 	}
 	addrs, err := iface.Addrs()
 	if err != nil {
-		log.Warnf("unable to list addresses for interface '%s': %v", name, err)
+		log.Warn().Msgf("unable to list addresses for interface '%s': %v", name, err)
 		return nil
 	}
 	for _, a := range addrs {

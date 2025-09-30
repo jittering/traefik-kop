@@ -11,30 +11,30 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"github.com/traefik/traefik/v2/pkg/config/dynamic"
-	"github.com/traefik/traefik/v2/pkg/log"
+	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 )
 
 func init() {
 	logrus.SetLevel(logrus.DebugLevel)
-	log.SetLevel(logrus.DebugLevel)
-	log.WithoutContext().WriterLevel(logrus.DebugLevel)
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 }
 
 type fakeDockerClient struct {
 	client.APIClient
-	containers []types.Container
-	container  types.ContainerJSON
+	containers []container.Summary
+	container  container.InspectResponse
 	err        error
 }
 
-func (c *fakeDockerClient) ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
+func (c *fakeDockerClient) ContainerList(ctx context.Context, options container.ListOptions) ([]container.Summary, error) {
 	return c.containers, nil
 }
 
-func (c *fakeDockerClient) ContainerInspect(ctx context.Context, container string) (types.ContainerJSON, error) {
+func (c *fakeDockerClient) ContainerInspect(ctx context.Context, container string) (container.InspectResponse, error) {
 	return c.container, c.err
 }
 
@@ -44,7 +44,7 @@ func Test_replaceIPs(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "172.20.0.2")
 
-	fc := &dockerCache{client: &fakeDockerClient{}, list: nil, details: make(map[string]types.ContainerJSON)}
+	fc := &dockerCache{client: &fakeDockerClient{}, list: nil, details: make(map[string]container.InspectResponse)}
 
 	// replace and test check again
 	replaceIPs(fc, cfg, "7.7.7.7")
@@ -64,12 +64,12 @@ func Test_replaceIPs(t *testing.T) {
 
 func createTestClient(labels map[string]string) *fakeDockerClient {
 	return &fakeDockerClient{
-		containers: []types.Container{
-			types.Container{
+		containers: []container.Summary{
+			container.Summary{
 				ID: "foobar_id",
 			},
 		},
-		container: types.ContainerJSON{
+		container: container.InspectResponse{
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:         "foobar_id",
 				HostConfig: &container.HostConfig{},
@@ -83,7 +83,7 @@ func createTestClient(labels map[string]string) *fakeDockerClient {
 }
 
 func Test_replacePorts(t *testing.T) {
-	log.Debug("Testing replacePorts")
+	log.Debug().Msg("Testing replacePorts")
 
 	portLabel := "traefik.http.services.nginx.loadbalancer.server.port"
 	dc := createTestClient(map[string]string{
@@ -91,7 +91,7 @@ func Test_replacePorts(t *testing.T) {
 		portLabel: "8888",
 	})
 
-	fc := &dockerCache{client: dc, list: nil, details: make(map[string]types.ContainerJSON)}
+	fc := &dockerCache{client: dc, list: nil, details: make(map[string]container.InspectResponse)}
 
 	cfg := &dynamic.Configuration{}
 	err := json.Unmarshal([]byte(NGINX_CONF_JSON), cfg)
@@ -100,19 +100,19 @@ func Test_replacePorts(t *testing.T) {
 	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "172.20.0.2:80"))
 
 	// explicit label present
-	log.Debug("explicit label present")
+	log.Debug().Msg("explicit label present")
 	replaceIPs(fc, cfg, "4.4.4.4")
 	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:8888"), "URL '%s' should end with '%s'", cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:8888")
 
 	// without label but no port binding
-	log.Debug("without label but no port binding")
+	log.Debug().Msg("without label but no port binding")
 	delete(dc.container.Config.Labels, portLabel)
 	json.Unmarshal([]byte(NGINX_CONF_JSON), cfg)
 	replaceIPs(fc, cfg, "4.4.4.4")
 	require.True(t, strings.HasSuffix(cfg.HTTP.Services["nginx@docker"].LoadBalancer.Servers[0].URL, "4.4.4.4:80"))
 
 	// with port binding
-	log.Debug("with port binding")
+	log.Debug().Msg("with port binding")
 	portMap := nat.PortMap{
 		"80": []nat.PortBinding{
 			{HostIP: "172.20.0.2", HostPort: "8888"},
@@ -138,7 +138,7 @@ func Test_replacePortsNoService(t *testing.T) {
 	dc := createTestClient(map[string]string{
 		"traefik.http.routers.nginx.entrypoints": "web-secure",
 	})
-	fc := &dockerCache{client: dc, list: nil, details: make(map[string]types.ContainerJSON)}
+	fc := &dockerCache{client: dc, list: nil, details: make(map[string]container.InspectResponse)}
 
 	cfg := &dynamic.Configuration{}
 	err := json.Unmarshal([]byte(NGINX_CONF_JSON_DIFFRENT_SERVICE_NAME), cfg)
