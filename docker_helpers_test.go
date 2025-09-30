@@ -114,7 +114,7 @@ func (d DockerAPIStub) ContainerInspect(ctx context.Context, containerID string)
 	return d.containersJSON[containerID], nil
 }
 
-func (d DockerAPIStub) ServiceList(ctx context.Context, options types.ServiceListOptions) ([]swarm.Service, error) {
+func (d DockerAPIStub) ServiceList(ctx context.Context, options swarm.ServiceListOptions) ([]swarm.Service, error) {
 	// Implement your logic here
 	fmt.Println("ServiceList")
 	return nil, nil
@@ -254,7 +254,6 @@ func createContainersJSON(composeConfig *compose.Config) map[string]container.In
 						IPAddress: "10.10.10.5",
 					},
 				},
-				NetworkSettingsBase: types.NetworkSettingsBase{},
 			},
 		}
 

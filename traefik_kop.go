@@ -48,9 +48,6 @@ func newDockerProvider(config Config) *docker.Provider {
 		// force to 0 for unix socket
 		dp.HTTPClientTimeout = ptypes.Duration(defaultTimeout)
 	}
-	// if dp.SwarmModeRefreshSeconds.String() == "0s" {
-	// 	dp.SwarmModeRefreshSeconds = ptypes.Duration(15 * time.Second)
-	// }
 	dp.Watch = true // always
 
 	return dp

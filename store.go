@@ -42,7 +42,7 @@ type RedisStore struct {
 }
 
 func NewRedisStore(hostname string, addr string, ttl int, user string, pass string, db int) TraefikStore {
-	log.Info().Msgf("creating new redis store at %s for hostname %s wtih %dsec TTL", addr, hostname, ttl)
+	log.Info().Msgf("creating new redis store at %s for hostname %s with %dsec TTL", addr, hostname, ttl)
 
 	store := &RedisStore{
 		Hostname: hostname,
