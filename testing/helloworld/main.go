@@ -43,6 +43,35 @@ func main() {
 		}
 	}()
 
+	// UDP listener on port 5578
+	go func() {
+		addr, err := net.ResolveUDPAddr("udp", ":5578")
+		if err != nil {
+			fmt.Println("Error resolving UDP address:", err)
+			return
+		}
+		conn, err := net.ListenUDP("udp", addr)
+		if err != nil {
+			fmt.Println("Error starting UDP listener:", err)
+			return
+		}
+		defer conn.Close()
+		fmt.Println("listening on UDP port 5578")
+		buffer := make([]byte, 1024)
+		for {
+			_, clientAddr, err := conn.ReadFromUDP(buffer)
+			if err != nil {
+				fmt.Println("Error reading from UDP:", err)
+				continue
+			}
+			response := []byte("hello world\n")
+			_, err = conn.WriteToUDP(response, clientAddr)
+			if err != nil {
+				fmt.Println("Error writing to UDP:", err)
+			}
+		}
+	}()
+
 	// Block forever
 	select {}
 }

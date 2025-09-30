@@ -1,6 +1,10 @@
-FROM golang
+FROM golang:alpine AS builder
 
 COPY * /go/
 RUN go build -o helloworld ./
 
-ENTRYPOINT ["./helloworld"]
+FROM alpine:latest
+
+COPY --from=builder /go/helloworld /helloworld
+
+ENTRYPOINT ["/helloworld"]
