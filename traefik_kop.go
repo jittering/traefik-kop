@@ -53,6 +53,7 @@ func newDockerProvider(config Config) *docker.Provider {
 	return dp
 }
 
+// createConfigHandler returns a function that processes new traefik configurations
 func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider, dockerClient client.APIClient) func(conf dynamic.Configuration) {
 	return func(conf dynamic.Configuration) {
 		// logrus.Printf("got new conf..\n")
@@ -67,9 +68,11 @@ func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider,
 
 		filterServices(dc, &conf, config.Namespace)
 
-		if !dp.UseBindPortIP {
+		if !dp.UseBindPortIP && !config.SkipReplace {
 			// if not using traefik's built in IP/Port detection, use our own
 			replaceIPs(dc, &conf, config.BindIP)
+		} else {
+			log.Debug().Msgf("skipping IP replacement (useBindPortIP=%v, skipReplace=%v)", dp.UseBindPortIP, config.SkipReplace)
 		}
 
 		mergeLoadBalancers(dc, &conf, store)
@@ -81,6 +84,7 @@ func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider,
 	}
 }
 
+// Start the main traefik-kop run-loop
 func Start(config Config) {
 	dockerClient, err := createDockerClient(config.DockerHost)
 	if err != nil {
@@ -143,6 +147,14 @@ func Start(config Config) {
 	select {} // go forever
 }
 
+// keepContainer returns true if the container should be kept based on namespace filtering
+//
+// Containers are kept if:
+//   - No namespaces are configured in traefik-kop and the container has no kop.namespace label (not
+//     using namespaces at all)
+//   - The container has a kop.namespace label that matches one of the configured namespaces
+//
+// ns is traefik-kop's configured namespaces to match against.
 func keepContainer(ns []string, container container.InspectResponse) bool {
 	containerNS := splitStringArr(container.Config.Labels["kop.namespace"])
 	if len(ns) == 0 && len(containerNS) == 0 {
@@ -156,13 +168,12 @@ func keepContainer(ns []string, container container.InspectResponse) bool {
 	return false
 }
 
-func joinNamespaces(ns []string) string {
-	return strings.Join(ns, ", ")
-}
-
 // filter out services by namespace
-// ns is traefik-kop's configured namespace to match against.
+//
+// ns is traefik-kop's configured namespaces to match against.
 func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
+	nsStr := strings.Join(ns, ", ")
+
 	if conf.HTTP != nil && conf.HTTP.Services != nil {
 		for svcName := range conf.HTTP.Services {
 			container, err := dc.findContainerByServiceName("http", svcName, getRouterOfService(conf, svcName, "http"))
@@ -171,7 +182,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
 				continue
 			}
 			if !keepContainer(ns, container) {
-				log.Info().Msgf("skipping service %s (not in namespace %s)", svcName, joinNamespaces(ns))
+				log.Info().Msgf("skipping service %s (not in namespace %s)", svcName, nsStr)
 				delete(conf.HTTP.Services, svcName)
 			}
 		}
@@ -186,7 +197,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
 				continue
 			}
 			if !keepContainer(ns, container) {
-				log.Info().Msgf("skipping router %s (not in namespace %s)", routerName, joinNamespaces(ns))
+				log.Info().Msgf("skipping router %s (not in namespace %s)", routerName, nsStr)
 				delete(conf.HTTP.Routers, routerName)
 			}
 		}
@@ -200,7 +211,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
 				continue
 			}
 			if !keepContainer(ns, container) {
-				log.Info().Msgf("skipping service %s (not in namespace %s)", svcName, joinNamespaces(ns))
+				log.Info().Msgf("skipping service %s (not in namespace %s)", svcName, nsStr)
 				delete(conf.TCP.Services, svcName)
 			}
 		}
@@ -215,7 +226,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
 				continue
 			}
 			if !keepContainer(ns, container) {
-				log.Info().Msgf("skipping router %s (not in namespace %s)", routerName, joinNamespaces(ns))
+				log.Info().Msgf("skipping router %s (not in namespace %s)", routerName, nsStr)
 				delete(conf.TCP.Routers, routerName)
 			}
 		}
@@ -244,7 +255,7 @@ func filterServices(dc *dockerCache, conf *dynamic.Configuration, ns []string) {
 				continue
 			}
 			if !keepContainer(ns, container) {
-				log.Info().Msgf("skipping router %s (not in namespace %s)", routerName, joinNamespaces(ns))
+				log.Info().Msgf("skipping router %s (not in namespace %s)", routerName, nsStr)
 				delete(conf.UDP.Routers, routerName)
 			}
 		}
@@ -301,7 +312,6 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 						server.URL += ":" + server.Port
 					}
 				}
-				log.Info().Msgf("publishing %s", server.URL)
 			}
 
 			if conf.HTTP.Routers != nil {
@@ -330,7 +340,6 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 				if server.Port != "" {
 					server.Address += ":" + server.Port
 				}
-				log.Info().Msgf("publishing %s", server.Address)
 			}
 		}
 	}
@@ -351,7 +360,6 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 				if server.Port != "" {
 					server.Address += ":" + server.Port
 				}
-				log.Info().Msgf("publishing %s", server.Address)
 			}
 		}
 	}

@@ -20,6 +20,7 @@ type Config struct {
 	DockerPrefix string
 	Hostname     string
 	BindIP       string
+	SkipReplace  bool
 	RedisAddr    string
 	RedisTTL     int
 	RedisUser    string
@@ -49,6 +50,9 @@ func loadDockerConfig(input string) (*docker.Provider, error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to open docker config %s", input)
 			}
+			defer r.(io.Closer).Close()
+		} else {
+			return nil, errors.Wrapf(err, "failed to stat docker config %s", input)
 		}
 	} else {
 		log.Debug().Msgf("loading docker config from yaml input")
@@ -61,6 +65,8 @@ func loadDockerConfig(input string) (*docker.Provider, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load config")
 	}
+
+	conf.Docker.Network = strings.TrimSpace(conf.Docker.Network)
 
 	return &conf.Docker, nil
 }

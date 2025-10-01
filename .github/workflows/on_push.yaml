@@ -75,6 +75,13 @@ jobs:
           version: latest
           install-only: true
 
+      - name: Test
+        run: |
+          set -eo pipefail
+          go mod tidy
+          go mod download
+          go test ./...
+
       - name: Build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -71,6 +71,11 @@ func flags() {
 				Usage:   "Network interface to derive bind IP (overrides auto-detect)",
 				EnvVars: []string{"BIND_INTERFACE"},
 			},
+			&cli.BoolFlag{
+				Name:    "skip-replace",
+				Usage:   "Disable custom IP replacement",
+				EnvVars: []string{"SKIP_REPLACE"},
+			},
 			&cli.StringFlag{
 				Name:    "redis-addr",
 				Usage:   "Redis address",
@@ -190,6 +195,7 @@ func doStart(c *cli.Context) error {
 	config := traefikkop.Config{
 		Hostname:     c.String("hostname"),
 		BindIP:       bindIP,
+		SkipReplace:  c.Bool("skip-replace"),
 		RedisAddr:    c.String("redis-addr"),
 		RedisUser:    c.String("redis-user"),
 		RedisPass:    c.String("redis-pass"),

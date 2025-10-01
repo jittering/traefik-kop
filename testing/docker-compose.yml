@@ -8,6 +8,7 @@ services:
 
   # Service with two routers+services listening on different ports.
   helloworld:
+    image: helloworld
     build:
       dockerfile: ./helloworld/Dockerfile
       context: ./
@@ -37,6 +38,7 @@ services:
   # This scenario will *not* be handled correctly by traefik-kop as we have no
   # fallback way to determine the port.
   hellodetect:
+    image: helloworld
     build:
       dockerfile: ./helloworld/Dockerfile
       context: ./
@@ -59,6 +61,7 @@ services:
 
   # Hello service with IP bind override
   helloip:
+    image: helloworld
     build:
       dockerfile: ./helloworld/Dockerfile
       context: ./
@@ -78,6 +81,7 @@ services:
 
   # Test case for #52 (typo in port label, uppercase 'B')
   hellotcp:
+    image: helloworld
     build:
       dockerfile: ./helloworld/Dockerfile
       context: ./
@@ -86,23 +90,26 @@ services:
       - 5555:5555
       - 5566:5566
       - 5577:5577
+      - 5578:5578/udp
     labels:
-      # Web server
+      # web
       - traefik.enable=true
-      - traefik.http.routers.gitlab-web.entrypoints=websecure
-      - traefik.http.routers.gitlab-web.rule=Host("gitlab.example.com")
-      - traefik.http.routers.gitlab-web.service=gitlab-web
-      - traefik.http.services.gitlab-web.loadbalancer.server.port=80
-      # Registry server
-      - traefik.http.routers.gitlab-registry.entrypoints=websecure
-      - traefik.http.routers.gitlab-registry.rule=Host("registry.example.com")
-      - traefik.http.routers.gitlab-registry.service=gitlab-registry
-      - traefik.http.services.gitlab-registry.loadbalancer.server.port=5005
-      # SSH host for git repository access
-      - traefik.tcp.routers.gitlab-ssh.rule=HostSNI("*")
-      - traefik.tcp.routers.gitlab-ssh.entrypoints=ssh-gitlab
-      - traefik.tcp.routers.gitlab-ssh.service=gitlab-ssh
-      - traefik.tcp.services.gitlab-ssh.loadBalancer.server.port=22
+      - traefik.http.routers.helloweb.rule=Host("helloweb.example.com")
+      - traefik.http.routers.helloweb.service=helloweb
+      - traefik.http.services.helloweb.loadbalancer.server.port=5555
+      # web 2
+      - traefik.http.routers.helloweb2.rule=Host("helloweb2.example.com")
+      - traefik.http.routers.helloweb2.service=helloweb2
+      - traefik.http.services.helloweb2.loadbalancer.server.port=5566
+      # tcp
+      - traefik.tcp.routers.hellotcp.entrypoints=tcp
+      - traefik.tcp.routers.hellotcp.rule=HostSNI("*")
+      - traefik.tcp.routers.hellotcp.service=hellotcp
+      - traefik.tcp.services.hellotcp.loadBalancer.server.port=5577
+      # udp
+      - traefik.udp.routers.helloudp.entrypoints=udp
+      - traefik.udp.routers.helloudp.service=helloudp
+      - traefik.udp.services.helloudp.loadBalancer.server.port=5578
 
   # Basic nginx with a simple healthcheck
   nginx:
@@ -178,4 +185,3 @@ services:
       - "kop.baz.traefik.http.routers.nginx.tls.certresolver=default"
       - "kop.baz.traefik.http.services.nginx.loadbalancer.server.scheme=http"
       - "kop.baz.traefik.http.services.nginx.loadbalancer.server.port=8088"
-
