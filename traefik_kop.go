@@ -68,9 +68,11 @@ func createConfigHandler(config Config, store TraefikStore, dp *docker.Provider,
 
 		filterServices(dc, &conf, config.Namespace)
 
-		if !dp.UseBindPortIP {
+		if !dp.UseBindPortIP && !config.SkipReplace {
 			// if not using traefik's built in IP/Port detection, use our own
 			replaceIPs(dc, &conf, config.BindIP)
+		} else {
+			log.Debug().Msgf("skipping IP replacement (useBindPortIP=%v, skipReplace=%v)", dp.UseBindPortIP, config.SkipReplace)
 		}
 
 		mergeLoadBalancers(dc, &conf, store)
@@ -310,7 +312,6 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 						server.URL += ":" + server.Port
 					}
 				}
-				log.Info().Msgf("publishing %s", server.URL)
 			}
 
 			if conf.HTTP.Routers != nil {
@@ -339,7 +340,6 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 				if server.Port != "" {
 					server.Address += ":" + server.Port
 				}
-				log.Info().Msgf("publishing %s", server.Address)
 			}
 		}
 	}
@@ -360,7 +360,6 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 				if server.Port != "" {
 					server.Address += ":" + server.Port
 				}
-				log.Info().Msgf("publishing %s", server.Address)
 			}
 		}
 	}

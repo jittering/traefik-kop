@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -98,6 +100,11 @@ func (s *RedisStore) Gets(key string) (map[string]string, error) {
 	return vals, nil
 }
 
+// traefik/http/services/gitea/loadBalancer/servers/0/url
+// traefik/tcp/services/gitea-ssh/loadBalancer/servers/0/address
+// traefik/udp/services/helloudp/loadBalancer/servers/0/address
+var svcAddrRe = regexp.MustCompile(`^traefik/(tcp|udp|http)/services/([^/]+)/loadBalancer/servers/\d+/(address|url)$`)
+
 func (s *RedisStore) Store(conf dynamic.Configuration) error {
 	s.removeOldKeys(conf.HTTP.Middlewares, "http_middlewares")
 	s.removeOldKeys(conf.HTTP.Routers, "http_routers")
@@ -112,8 +119,17 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 	if err != nil {
 		return err
 	}
-	for k, v := range kv {
+
+	sortedKeys := collectKeys(kv)
+	sort.Strings(sortedKeys)
+	for _, k := range sortedKeys {
+		v := kv[k]
 		log.Debug().Msgf("writing %s = %s", k, v)
+
+		if matches := svcAddrRe.FindStringSubmatch(k); matches != nil {
+			log.Info().Str("service", matches[2]).Str("service-type", matches[1]).Msgf("publishing %s", v)
+		}
+
 		s.client.Set(context.Background(), k, v, s.TTL)
 	}
 

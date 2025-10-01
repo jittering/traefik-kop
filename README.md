@@ -34,8 +34,9 @@ them to a given `redis` instance. Simply configure your `traefik` node with a
     - [bind-ip](#bind-ip)
     - [bind-interface](#bind-interface)
     - [traefik-kop service labels](#traefik-kop-service-labels)
-    - [Load Balancer Merging](#load-balancer-merging)
     - [Container Networking](#container-networking)
+    - [Disable IP Replacement (auto-detection)](#disable-ip-replacement-auto-detection)
+  - [Load Balancer Merging](#load-balancer-merging)
   - [Service port binding](#service-port-binding)
   - [Namespaces](#namespaces)
     - [Namespace via label prefix](#namespace-via-label-prefix)
@@ -43,7 +44,6 @@ them to a given `redis` instance. Simply configure your `traefik` node with a
     - [Traefik Docker Provider Config](#traefik-docker-provider-config)
   - [Releasing](#releasing)
   - [License](#license)
-
 
 ## Usage
 
@@ -117,6 +117,7 @@ GLOBAL OPTIONS:
    --hostname value       Hostname to identify this node in redis (default: "server.local") [$KOP_HOSTNAME]
    --bind-ip value        IP address to bind services to [$BIND_IP]
    --bind-interface value Network interface to derive bind IP (overrides auto-detect) [$BIND_INTERFACE]
+   --skip-replace         Disable custom IP replacement (default: false) [$SKIP_REPLACE]
    --redis-addr value     Redis address (default: "127.0.0.1:6379") [$REDIS_ADDR]
    --redis-user value     Redis username (default: "default") [$REDIS_USER]
    --redis-pass value     Redis password (if needed) [$REDIS_PASS]
@@ -179,7 +180,28 @@ Labels can be one of two keys:
 For a container with a single exposed service, or where all services use
 the same IP, the latter is sufficient.
 
-### Load Balancer Merging
+### Container Networking
+
+If your container is configured to use a network-routable IP address via an
+overlay network or CNI plugin, that address will override the `bind-ip`
+configuration above when the `traefik.docker.network` label is present on the
+service.
+
+If using a global overlay `network` in your [Traefik Docker Provider
+Config](#traefik-docker-provider-config), it is recommended that you [disable IP
+replacement](#disable-ip-replacement-auto-detection) entirely (see below).
+
+### Disable IP Replacement (auto-detection)
+
+traefik-kop's custom IP and port auto-detection can be disabled by passing the `--skip-replace` flag
+or setting the `SKIP_REPLACE=1` environment variable. When set, `traefik-kop` will rely soley on
+traefik's native IP and port detection. Other relevant flags such as `--bind-ip` or `--bind-interface`
+will have no effect.
+
+This works best when your services are using an overlay network, as described in
+[Container Networking](#container-networking) above.
+
+## Load Balancer Merging
 
 If your service is running on multiple nodes and load balanced by traefik, you can enable
 merging of load balancers by adding the following label to your container:
@@ -192,13 +214,6 @@ address to the ones already present.
 This setting is off by default as there are some cases where it could cause an issue, such as if
 your node's IP changes. In this case, the dead IP would be left in place and the new IP would get
 added to the list, causing some of your traffic to fail.
-
-### Container Networking
-
-If your container is configured to use a network-routable IP address via an
-overlay network or CNI plugin, that address will override the `bind-ip`
-configuration above when the `traefik.docker.network` label is present on the
-service.
 
 ## Service port binding
 
@@ -325,7 +340,6 @@ services:
       - "kop.public.traefik.http.routers..."
       - "kop.public.traefik..."
 ```
-
 
 ## Docker API
 
