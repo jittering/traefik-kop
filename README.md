@@ -194,7 +194,7 @@ replacement](#disable-ip-replacement-auto-detection) entirely (see below).
 ### Disable IP Replacement (auto-detection)
 
 traefik-kop's custom IP and port auto-detection can be disabled by passing the `--skip-replace` flag
-or setting the `SKIP_REPLACE=1` environment variable. When set, `traefik-kop` will rely soley on
+or setting the `SKIP_REPLACE=1` environment variable. When set, `traefik-kop` will rely solely on
 traefik's native IP and port detection. Other relevant flags such as `--bind-ip` or `--bind-interface`
 will have no effect.
 
