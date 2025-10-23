@@ -157,6 +157,10 @@ func createHTTPServer() (*fiber.App, string) {
 		return c.JSON(container)
 	})
 
+	app.Get("/v*/events", func(c *fiber.Ctx) error {
+		return nil
+	})
+
 	listener, err := getAvailablePort()
 	if err != nil {
 		log.Fatal(err)
@@ -313,7 +317,7 @@ func processFileWithConfig(t *testing.T, store *testStore, config *Config, file 
 	dockerAPI.containersJSON = createContainersJSON(composeConfig)
 
 	dp := &docker.Provider{}
-	dp.Watch = false
+	dp.Watch = true // to test events
 	dp.Endpoint = dockerEndpoint
 
 	if config == nil {

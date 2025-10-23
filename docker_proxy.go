@@ -121,9 +121,6 @@ func (s *DockerProxyServer) handleEvents(c *fiber.Ctx) error {
 		encoder := json.NewEncoder(w)
 		for {
 			select {
-			case <-c.Context().Done():
-				return
-
 			case event := <-eventsCh:
 				if event.Type == "container" && event.Actor.Attributes != nil {
 					event.Actor.Attributes = s.filterLabels(event.Actor.Attributes)
