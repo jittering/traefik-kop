@@ -59,15 +59,16 @@ jobs:
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
 
-      - name: Local cache
-        uses: actions-self-hosted/cache@v4
-        if: ${{ runner.environment == 'self-hosted' }}
-        with:
-          cache-dir: /local-cache
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+      # repo disappeared
+      # - name: Local cache
+      #   uses: actions-self-hosted/cache@v4
+      #   if: ${{ runner.environment == 'self-hosted' }}
+      #   with:
+      #     cache-dir: /local-cache
+      #     path: |
+      #       ~/.cache/go-build
+      #       ~/go/pkg/mod
+      #     key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
 
       - name: Set up GoReleaser
         uses: goreleaser/goreleaser-action@v6
