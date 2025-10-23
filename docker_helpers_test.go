@@ -293,7 +293,7 @@ func createContainersJSON(composeConfig *compose.Config) map[string]container.In
 	return containersJSON
 }
 
-func processFile(t *testing.T, file ...string) *testStore {
+func processFile(t *testing.T, file ...string) TraefikStore {
 	store := &testStore{}
 	for _, f := range file {
 		processFileWithConfig(t, store, nil, f)
@@ -301,7 +301,7 @@ func processFile(t *testing.T, file ...string) *testStore {
 	return store
 }
 
-func processFileWithConfig(t *testing.T, store *testStore, config *Config, file string) *testStore {
+func processFileWithConfig(t *testing.T, store TraefikStore, config *Config, file string) TraefikStore {
 	p := path.Join("fixtures", file)
 	f, err := os.Open(p)
 	assert.NoError(t, err)
@@ -359,15 +359,17 @@ func processFileWithConfig(t *testing.T, store *testStore, config *Config, file 
 
 	wgChanges.Wait()
 
-	// print the kv store with sorted keys
-	fmt.Println("printing kv store after processing file:", file)
-	keys := make([]string, 0, len(store.kv))
-	for k := range store.kv {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		fmt.Printf("%s: %+v\n", k, store.kv[k])
+	if ts, ok := store.(*testStore); ok {
+		// print the kv store with sorted keys
+		fmt.Println("printing kv store after processing file:", file)
+		keys := make([]string, 0, len(ts.kv))
+		for k := range ts.kv {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			fmt.Printf("%s: %+v\n", k, ts.kv[k])
+		}
 	}
 
 	return store
@@ -383,16 +385,18 @@ type svc struct {
 	ip    string
 }
 
-func assertServiceIPs(t *testing.T, store *testStore, svcs []svc) {
+func assertServiceIPs(t *testing.T, store TraefikStore, svcs []svc) {
 	for _, svc := range svcs {
 		path := "url"
 		if svc.proto != "http" {
 			path = "address"
 		}
 		key := fmt.Sprintf("traefik/%s/services/%s/loadBalancer/servers/0/%s", svc.proto, svc.name, path)
+		val, err := store.Get(key)
+		assert.NoError(t, err)
 		assert.Equal(t,
 			svc.ip,
-			store.kv[key],
+			val,
 			"service has wrong IP at key: %s",
 			key,
 		)

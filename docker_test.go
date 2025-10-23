@@ -52,12 +52,11 @@ func Test_helloWorld(t *testing.T) {
 	store := processFile(t, "helloworld.yml")
 
 	assert.NotNil(t, store)
-	assert.NotNil(t, store.kv)
 
-	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
-	assert.Equal(t, "hello2", store.kv["traefik/http/routers/hello2/service"])
-	assert.NotNil(t, store.kv["traefik/http/routers/hello1/tls/certResolver"])
-	assert.NotNil(t, store.kv["traefik/http/routers/hello2/tls/certResolver"])
+	assert.Equal(t, "hello1", g(store, "traefik/http/routers/hello1/service"))
+	assert.Equal(t, "hello2", g(store, "traefik/http/routers/hello2/service"))
+	assert.NotEmpty(t, g(store, "traefik/http/routers/hello1/tls/certResolver"))
+	assert.NotEmpty(t, g(store, "traefik/http/routers/hello2/tls/certResolver"))
 
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://192.168.100.100:5555"},
@@ -65,8 +64,8 @@ func Test_helloWorld(t *testing.T) {
 	})
 
 	// assertServiceIP(t, store, "hello1", "http://192.168.100.100:5555")
-	// assert.Equal(t, "http://192.168.100.100:5555", store.kv["traefik/http/services/hello1/loadBalancer/servers/0/url"])
-	// assert.Equal(t, "http://192.168.100.100:5566", store.kv["traefik/http/services/hello2/loadBalancer/servers/0/url"])
+	// assert.Equal(t, "http://192.168.100.100:5555", g(store, "traefik/http/services/hello1/loadBalancer/servers/0/url"))
+	// assert.Equal(t, "http://192.168.100.100:5566", g(store, "traefik/http/services/hello2/loadBalancer/servers/0/url"))
 }
 
 func Test_helloDetect(t *testing.T) {
@@ -115,20 +114,28 @@ func Test_TCPMQTT(t *testing.T) {
 func Test_helloWorldNoCert(t *testing.T) {
 	store := processFile(t, "hello-no-cert.yml")
 
-	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
-	assert.Nil(t, store.kv["traefik/http/routers/hello1/tls/certResolver"])
+	assert.Equal(t, "hello1", g(store, "traefik/http/routers/hello1/service"))
+	assert.Empty(t, g(store, "traefik/http/routers/hello1/tls/certResolver"))
 
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://192.168.100.100:5555"},
 	})
 }
 
+func g(s TraefikStore, k string) string {
+	v, err := s.Get(k)
+	if err != nil {
+		return ""
+	}
+	return v
+}
+
 func Test_helloWorldIgnore(t *testing.T) {
 	store := processFile(t, "hello-ignore.yml")
-	assert.Nil(t, store.kv["traefik/http/routers/hello1/service"])
+	assert.Empty(t, g(store, "traefik/http/routers/hello1/service"))
 
 	store = processFileWithConfig(t, nil, &Config{Namespace: []string{"foobar"}}, "hello-ignore.yml")
-	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
+	assert.Equal(t, "hello1", g(store, "traefik/http/routers/hello1/service"))
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://192.168.100.100:5555"},
 	})
@@ -136,33 +143,33 @@ func Test_helloWorldIgnore(t *testing.T) {
 
 func Test_helloWorldMultiNS(t *testing.T) {
 	store := processFile(t, "hello-multi-ns.yml")
-	assert.Nil(t, store.kv["traefik/http/routers/hello1/service"])
+	assert.Empty(t, g(store, "traefik/http/routers/hello1/service"))
 
 	store = processFileWithConfig(t, nil, &Config{Namespace: []string{"foobar"}}, "hello-multi-ns.yml")
-	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
+	assert.Equal(t, "hello1", g(store, "traefik/http/routers/hello1/service"))
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://192.168.100.100:5555"},
 	})
 
 	store = processFileWithConfig(t, nil, &Config{Namespace: []string{"xyz"}}, "hello-multi-ns.yml")
-	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
+	assert.Equal(t, "hello1", g(store, "traefik/http/routers/hello1/service"))
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://192.168.100.100:5555"},
 	})
 
 	store = processFileWithConfig(t, nil, &Config{Namespace: []string{"foobar", "xyz"}}, "hello-multi-ns.yml")
-	assert.Equal(t, "hello1", store.kv["traefik/http/routers/hello1/service"])
+	assert.Equal(t, "hello1", g(store, "traefik/http/routers/hello1/service"))
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://192.168.100.100:5555"},
 	})
 
 	store = processFileWithConfig(t, nil, &Config{Namespace: []string{"abc"}}, "hello-multi-ns.yml")
-	assert.Nil(t, store.kv["traefik/http/routers/hello1/service"])
+	assert.Empty(t, g(store, "traefik/http/routers/hello1/service"))
 }
 
 func Test_helloWorldAutoMapped(t *testing.T) {
 	store := processFile(t, "hello-automapped.yml")
-	assert.Equal(t, "hello", store.kv["traefik/http/routers/hello/service"])
+	assert.Equal(t, "hello", g(store, "traefik/http/routers/hello/service"))
 	assertServiceIPs(t, store, []svc{
 		{"hello", "http", "http://192.168.100.100:12345"},
 	})
@@ -183,16 +190,13 @@ func Test_samePrefix(t *testing.T) {
 func Test_loadbalance(t *testing.T) {
 	store := processFile(t, "loadbalance1.yml", "loadbalance2.yml")
 
-	url1 := store.kv["traefik/http/services/lbtest/loadBalancer/servers/0/url"]
-	url2 := store.kv["traefik/http/services/lbtest/loadBalancer/servers/1/url"]
+	url1 := g(store, "traefik/http/services/lbtest/loadBalancer/servers/0/url")
+	url2 := g(store, "traefik/http/services/lbtest/loadBalancer/servers/1/url")
 
-	assert.NotNil(t, url1)
-	assert.NotNil(t, url2)
+	assert.NotEmpty(t, url1)
+	assert.NotEmpty(t, url2)
 
-	urls := []string{
-		url1.(string),
-		url2.(string),
-	}
+	urls := []string{url1, url2}
 
 	assert.Contains(t, urls, "http://192.168.100.100:5555")
 	assert.Contains(t, urls, "http://192.168.100.100:5556")

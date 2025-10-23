@@ -51,10 +51,12 @@ func NewRedisStore(hostname string, addr string, ttl int, user string, pass stri
 		TTL:      time.Duration(ttl) * time.Second,
 
 		client: redis.NewClient(&redis.Options{
-			Addr:     addr,
-			Username: user,
-			Password: pass,
-			DB:       db,
+			ClientName:      "",
+			DisableIdentity: true,
+			Addr:            addr,
+			Username:        user,
+			Password:        pass,
+			DB:              db,
 		}),
 	}
 	return store

@@ -31,8 +31,8 @@ func Test_dockerProxyServerNoPrefix(t *testing.T) {
 		{"hello-detect", "http", "http://192.168.100.100:5577"},
 		{"hello-detect2", "http", "http://192.168.100.100:5577"},
 	})
-	assert.NotEmpty(t, store.kv[fmt.Sprintf("traefik/http/routers/%s/service", "hello-detect2")])
-	assert.Empty(t, store.kv[fmt.Sprintf("traefik/http/routers/%s/service", "prefixed")])
+	assert.NotEmpty(t, g(store, fmt.Sprintf("traefik/http/routers/%s/service", "hello-detect2")))
+	assert.Empty(t, g(store, fmt.Sprintf("traefik/http/routers/%s/service", "prefixed")))
 }
 
 func Test_dockerProxyServerPrefix(t *testing.T) {
@@ -60,6 +60,6 @@ func Test_dockerProxyServerPrefix(t *testing.T) {
 		{"prefixed", "http", "http://192.168.100.100:5588"},
 	})
 
-	assert.Empty(t, store.kv[fmt.Sprintf("traefik/http/routers/%s/service", "hello-detect2")])
-	assert.NotEmpty(t, store.kv[fmt.Sprintf("traefik/http/routers/%s/service", "prefixed")])
+	assert.Empty(t, g(store, fmt.Sprintf("traefik/http/routers/%s/service", "hello-detect2")))
+	assert.NotEmpty(t, g(store, fmt.Sprintf("traefik/http/routers/%s/service", "prefixed")))
 }

@@ -2,9 +2,13 @@ package traefikkop
 
 import (
 	"encoding/json"
+	"fmt"
+	"net"
 	"testing"
 
 	"github.com/BurntSushi/toml"
+	"github.com/echovault/sugardb/sugardb"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 )
@@ -35,3 +39,25 @@ func Test_collectKeys(t *testing.T) {
 // require.True(t, keys.Contains("Middleware21"))
 
 // require.True(t, collectKeys(cfg.HTTP.Services).Contains("Service0"))
+
+func Test_redisStore(t *testing.T) {
+	l, err := getAvailablePort()
+	assert.NoError(t, err)
+	port := l.Addr().(*net.TCPAddr).Port
+	assert.NoError(t, l.Close())
+
+	server, err := sugardb.NewSugarDB(sugardb.WithPort(uint16(port)))
+	if err != nil {
+		assert.NoError(t, err)
+	}
+
+	go server.Start()
+	defer server.ShutDown()
+
+	store := NewRedisStore("localhost", fmt.Sprintf("localhost:%d", port), 0, "", "", 0)
+	processFileWithConfig(t, store, nil, "hellodetect.yml")
+	assertServiceIPs(t, store, []svc{
+		{"hello-detect", "http", "http://192.168.100.100:5577"},
+		{"hello-detect2", "http", "http://192.168.100.100:5577"},
+	})
+}
