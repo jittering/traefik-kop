@@ -25,7 +25,6 @@ import (
 	"github.com/ryanuber/go-glob"
 	"github.com/stretchr/testify/assert"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
-	"github.com/traefik/traefik/v3/pkg/provider/docker"
 	"github.com/traefik/traefik/v3/pkg/safe"
 	"github.com/traefik/traefik/v3/pkg/server"
 )
@@ -79,7 +78,16 @@ func (s *testStore) Store(conf dynamic.Configuration) error {
 	if err != nil {
 		return err
 	}
-	s.kv = kv
+
+	if s.kv == nil {
+		s.kv = kv
+	} else {
+		// merge kv into s.kv
+		for k, v := range kv {
+			s.kv[k] = v
+		}
+	}
+
 	return nil
 }
 
@@ -316,10 +324,6 @@ func processFileWithConfig(t *testing.T, store *testStore, config *Config, file 
 	dockerAPI.containers = createContainers(composeConfig)
 	dockerAPI.containersJSON = createContainersJSON(composeConfig)
 
-	dp := &docker.Provider{}
-	dp.Watch = true // to test events
-	dp.Endpoint = dockerEndpoint
-
 	if config == nil {
 		config = &Config{
 			BindIP: "192.168.100.100",
@@ -327,7 +331,11 @@ func processFileWithConfig(t *testing.T, store *testStore, config *Config, file 
 	} else {
 		config.BindIP = "192.168.100.100"
 	}
+	if config.DockerHost == "" {
+		config.DockerHost = dockerEndpoint
+	}
 
+	dp := newDockerProvider(*config)
 	handleConfigChange := createConfigHandler(*config, store, dp, dc)
 
 	routinesPool := safe.NewPool(context.Background())
@@ -352,6 +360,7 @@ func processFileWithConfig(t *testing.T, store *testStore, config *Config, file 
 	wgChanges.Wait()
 
 	// print the kv store with sorted keys
+	fmt.Println("printing kv store after processing file:", file)
 	keys := make([]string, 0, len(store.kv))
 	for k := range store.kv {
 		keys = append(keys, k)

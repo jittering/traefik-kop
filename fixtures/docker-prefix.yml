@@ -1,0 +1,13 @@
+services:
+  # test labels with a prefix, i.e., DOCKER_PREFIX=foo.
+  dockerprefix:
+    restart: unless-stopped
+    ports:
+      - 5588:5588
+    labels:
+      - "foo.traefik.enable=true"
+      - "foo.traefik.http.routers.prefixed.rule=Host(`hello-prefix.local`)"
+      - "foo.traefik.http.routers.prefixed.service=prefixed"
+      - "foo.traefik.http.routers.prefixed.tls=true"
+      - "foo.traefik.http.routers.prefixed.tls.certresolver=default"
+      - "foo.traefik.http.services.prefixed.loadbalancer.server.scheme=http"
