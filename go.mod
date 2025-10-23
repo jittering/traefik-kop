@@ -15,6 +15,7 @@ require (
 	github.com/docker/cli v28.5.1+incompatible
 	github.com/docker/docker v28.5.1+incompatible
 	github.com/docker/go-connections v0.6.0
+	github.com/echovault/sugardb v0.17.0
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/pkg/errors v0.9.1
 	github.com/redis/go-redis/v9 v9.16.0
@@ -115,7 +116,6 @@ require (
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/dnsimple/dnsimple-go/v4 v4.0.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/echovault/sugardb v0.17.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
 	github.com/exoscale/egoscale/v3 v3.1.24 // indirect
 	github.com/fatih/color v1.18.0 // indirect
