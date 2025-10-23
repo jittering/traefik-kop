@@ -34,6 +34,7 @@ watch-cover:
 clean:
 	rm -rf dist/
 	rm -f traefik-kop
+	rm -rf aof/
 
 release: clean
 	goreleaser release --rm-dist --skip-validate
