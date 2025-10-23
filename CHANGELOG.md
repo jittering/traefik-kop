@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.19
+
+### New Features
+
+- Add `--skip-replace` (env: `SKIP_REPLACE=1`) to entirely [skip IP replacement](README.md#disable-ip-replacement-auto-detection)
+
+### Fixes
+
+- NPE when using label prefix [#76](https://github.com/jittering/traefik-kop/issues/76)
+
+### Other
+
+- Upgraded `traefik` lib used by `traefik-kop` to v3 (kop will continue to work with traefik 2.x)
+
 ## v0.18
 
 ### New Features
