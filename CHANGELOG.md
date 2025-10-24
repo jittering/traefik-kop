@@ -12,7 +12,13 @@
 
 ### Other
 
-- Upgraded `traefik` lib used by `traefik-kop` to v3 (kop will continue to work with traefik 2.x)
+- Upgraded `traefik` lib used by `traefik-kop` to v3.5
+
+**Note:** 3.x had some minor route config changes including a new field in 3.5. It is recommended to use the latest 3.5.x version of traefik with this release. If you are on 3.4 or lower, you should continue using 0.18.1 [`ghcr.io/jittering/traefik-kop:0.18.1`] (See #77 for details).
+
+## v0.18.1
+
+- Fixed docker build
 
 ## v0.18
 
