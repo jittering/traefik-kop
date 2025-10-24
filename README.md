@@ -107,7 +107,7 @@ See also the [IP Binding](#ip-binding) section below.
 
 ## Configuration
 
-traefik-kop can be configured via either CLI flags are environment variables.
+traefik-kop can be configured via either CLI flags or environment variables.
 
 ```text
 USAGE:
