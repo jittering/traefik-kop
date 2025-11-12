@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.19.1
+
+### Fixes
+
+- Auto-negotiation docker API version [#78](https://github.com/jittering/traefik-kop/issues/78)
+
 ## v0.19
 
 ### New Features
