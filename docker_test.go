@@ -45,7 +45,8 @@ func TestMain(m *testing.M) {
 func Test_httpServerVersion(t *testing.T) {
 	v, err := dc.ServerVersion(context.Background())
 	assert.NoError(t, err)
-	assert.Equal(t, "1.0.0", v.Version)
+	assert.Equal(t, "29.0.0", v.Version)
+	assert.Equal(t, "1.45", v.APIVersion)
 }
 
 func Test_helloWorld(t *testing.T) {

@@ -97,10 +97,10 @@ type DockerAPIStub struct {
 }
 
 func (d DockerAPIStub) ServerVersion(ctx context.Context) (types.Version, error) {
-	// Implement your logic here
+	// Return a version that's compatible with both old and new Docker clients
 	return types.Version{
-		Version:    "1.0.0",
-		APIVersion: "1.0.0-test",
+		Version:    "29.0.0",
+		APIVersion: "1.45", // Compatible with Docker CE 29.0.0 and API negotiation
 	}, nil
 }
 
@@ -138,7 +138,7 @@ func createHTTPServer() (*fiber.App, string) {
 	app := fiber.New()
 	app.Use(logger.New())
 
-	app.Get("/v1.24/version", func(c *fiber.Ctx) error {
+	app.Get("/v*/version", func(c *fiber.Ctx) error {
 		version, err := dockerAPI.ServerVersion(c.Context())
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
@@ -146,7 +146,7 @@ func createHTTPServer() (*fiber.App, string) {
 		return c.JSON(version)
 	})
 
-	app.Get("/v1.24/containers/json", func(c *fiber.Ctx) error {
+	app.Get("/v*/containers/json", func(c *fiber.Ctx) error {
 		containers, err := dockerAPI.ContainerList(c.Context(), container.ListOptions{})
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
@@ -154,7 +154,7 @@ func createHTTPServer() (*fiber.App, string) {
 		return c.JSON(containers)
 	})
 
-	app.Get("/v1.24/containers/:id/json", func(c *fiber.Ctx) error {
+	app.Get("/v*/containers/:id/json", func(c *fiber.Ctx) error {
 		container, err := dockerAPI.ContainerInspect(c.Context(), c.Params("id"))
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
