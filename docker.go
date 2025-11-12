@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/traefik/traefik/v3/pkg/provider/docker"
 )
 
 // Copied from traefik. See docker provider package for original impl
@@ -40,12 +39,9 @@ func createDockerClient(endpoint string) (client.APIClient, error) {
 	}
 	opts = append(opts, client.WithHTTPHeaders(httpHeaders))
 
-	apiVersion := docker.DockerAPIVersion
-	SwarmMode := false
-	if SwarmMode {
-		apiVersion = docker.SwarmAPIVersion
-	}
-	opts = append(opts, client.WithVersion(apiVersion))
+	// Use API version negotiation for compatibility with both old and new Docker daemons
+	// This fixes the issue with Docker CE 29.0.0 which requires minimum API version 1.44
+	opts = append(opts, client.WithAPIVersionNegotiation())
 
 	return client.NewClientWithOpts(opts...)
 }
