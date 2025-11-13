@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.19.2
+
+### Fixes
+
+- Proper fix for docker API version (upgraded traefik dep to 3.6.1)
+
 ## v0.19.1
 
 ### Fixes
