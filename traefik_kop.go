@@ -93,9 +93,21 @@ func Start(config Config) {
 
 	if config.DockerPrefix != "" {
 		// use proxy to filter by label prefix
+		//
+		// Docker client is used in two places:
+		// 		- Docker Provider which is used by traefik
+		//    - dockerCache used by traefik-kop to lookup container info
+		//
+		// The real docker client is only used by the proxy.
+		// All other usage goes via docker client connecting to the proxy.
+
 		dockerProxy := createProxy(dockerClient, config.DockerPrefix)
 		_, dockerProxyAddr := dockerProxy.start()
 		config.DockerHost = dockerProxyAddr
+		dockerClient, err = createDockerClient(dockerProxyAddr)
+		if err != nil {
+			log.Fatal().Msgf("failed to create docker client for proxy: %s", err)
+		}
 	}
 
 	dp := newDockerProvider(config)

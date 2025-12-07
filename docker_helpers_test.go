@@ -397,7 +397,8 @@ func assertServiceIPs(t *testing.T, store TraefikStore, svcs []svc) {
 		assert.Equal(t,
 			svc.ip,
 			val,
-			"service has wrong IP at key: %s",
+			"service %s has wrong IP at key: %s",
+			svc,
 			key,
 		)
 	}

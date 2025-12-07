@@ -160,6 +160,7 @@ func (s *DockerProxyServer) start() (*fiber.App, string) {
 		app.Use(logger.New())
 	}
 
+	app.All("/_ping", func(ctx *fiber.Ctx) error { return ctx.SendStatus(fiber.StatusNoContent) })
 	app.Get("/v*/version", s.handleVersion)
 	app.Get("/v*/containers/json", s.handleContainersList)
 	app.Get("/v*/containers/:id/json", s.handleContainerInspect)

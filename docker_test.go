@@ -17,6 +17,7 @@ var dc client.APIClient
 var dockerAPI = &DockerAPIStub{}
 
 func setup() {
+	os.Unsetenv("DOCKER_HOST") // make sure this doesn't interfere with our client setup
 	app, dockerEndpoint = createHTTPServer()
 	var err error
 	dc, err = createDockerClient(dockerEndpoint)
