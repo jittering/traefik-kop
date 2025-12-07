@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.19.3
+
+### Fixes
+
+- kop.bind.ip ignored when using label prefix (resolves #82)
+
 ## v0.19.2
 
 ### Fixes
