@@ -123,7 +123,7 @@ GLOBAL OPTIONS:
    --redis-pass value     Redis password (if needed) [$REDIS_PASS]
    --redis-db value       Redis DB number (default: 0) [$REDIS_DB]
    --redis-ttl value      Redis TTL (in seconds) (default: 0) [$REDIS_TTL]
-   --docker-host value    Docker endpoint (default: "unix:///var/run/docker.sock") [$DOCKER_HOST]
+   --docker-host value    Docker endpoint (default: "unix:///var/run/docker.sock") [$DOCKER_ADDR]
    --docker-config value  Docker provider config (file must end in .yaml) [$DOCKER_CONFIG]
    --docker-prefix value  Docker label prefix [$DOCKER_PREFIX]
    --poll-interval value  Poll interval for refreshing container list (default: 60) [$KOP_POLL_INTERVAL]
@@ -345,7 +345,7 @@ services:
 
 traefik-kop expects to connect to the Docker host API via a unix socket, by
 default at `/var/run/docker.sock`. The location can be overridden via the
-`DOCKER_HOST` env var or `--docker-host` flag.
+`DOCKER_ADDR` env var or `--docker-host` flag.
 
 Other connection methods (like ssh, http/s) are not supported.
 

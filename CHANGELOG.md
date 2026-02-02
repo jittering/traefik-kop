@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.19.4
+
+- disallow using DOCKER_HOST var together with prefixes (resolves #83)
+
 ## v0.19.3
 
 ### Fixes
