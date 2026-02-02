@@ -175,6 +175,7 @@ func (s *DockerProxyServer) start() (*fiber.App, string) {
 	go app.Listener(listener)
 
 	dockerEndpoint := fmt.Sprintf("http://localhost:%d", listener.Addr().(*net.TCPAddr).Port)
+	log.Debug().Msgf("Started docker proxy at %s with label prefix '%s'", dockerEndpoint, s.labelPrefix)
 
 	return app, dockerEndpoint
 }

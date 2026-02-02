@@ -109,7 +109,7 @@ func flags() {
 				Name:    "docker-host",
 				Usage:   "Docker endpoint",
 				Value:   defaultDockerHost,
-				EnvVars: []string{"DOCKER_HOST"},
+				EnvVars: []string{"DOCKER_ADDR", "DOCKER_HOST"},
 			},
 			&cli.StringFlag{
 				Name:    "docker-config",
@@ -210,6 +210,14 @@ func doStart(c *cli.Context) error {
 
 	if config.BindIP == "" {
 		log.Fatal().Msg("Bind IP cannot be empty")
+	}
+
+	if os.Getenv("DOCKER_HOST") != "" {
+		if config.DockerPrefix != "" {
+			log.Fatal().Msgf("Using the DOCKER_HOST env var with the DOCKER PREFIX feature is not allowed; use DOCKER_ADDR to set the Docker endpoint instead")
+		} else if config.DockerHost != os.Getenv("DOCKER_HOST") {
+			log.Warn().Msgf("Setting the DOCKER_HOST env var in addition to the --docker-host flag or DOCKER_ADDR env var is not recommended and may cause unexpected behavior.")
+		}
 	}
 
 	setupLogging(c.Bool("verbose"))
