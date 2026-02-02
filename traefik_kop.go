@@ -570,7 +570,11 @@ func mergeGenericLoadBalancers(
 			continue
 		}
 
-		merge, _ := strconv.ParseBool(container.Config.Labels["traefik.merge-lbs"])
+		merge, _ := strconv.ParseBool(container.Config.Labels["kop.merge-lbs"])
+		if !merge {
+			// backwards compat - allow traefik prefix due to earlier typo
+			merge, _ = strconv.ParseBool(container.Config.Labels["traefik.merge-lbs"])
+		}
 		if !merge {
 			continue
 		}
