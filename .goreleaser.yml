@@ -21,7 +21,7 @@ builds:
       - "6"
       - "7"
 archives:
-  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
 checksum:
   name_template: "checksums.txt"
 snapshot:
@@ -38,6 +38,7 @@ dockers_v2:
       - "ghcr.io/jittering/{{ .ProjectName }}"
     tags:
       - "{{ .Version }}"
+      - "{{ if not .IsSnapshot }}{{ .Major }}.{{ .Minor }}{{ end }}"
       - "{{ if not .IsSnapshot }}latest{{ end }}"
     dockerfile: Dockerfile
     platforms:
