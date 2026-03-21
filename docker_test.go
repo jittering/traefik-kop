@@ -124,6 +124,12 @@ func Test_helloWorldNoCert(t *testing.T) {
 	})
 }
 
+func Test_routerTLSWithoutCertResolver(t *testing.T) {
+	store := processFile(t, "musicassistant-tls.yml")
+
+	assert.Equal(t, "true", g(store, "traefik/http/routers/musicassistant/tls"))
+}
+
 func g(s TraefikStore, k string) string {
 	v, err := s.Get(k)
 	if err != nil {

@@ -21,7 +21,7 @@ services:
     labels:
       - "foo.traefik.enable=true"
       - "foo.traefik.http.routers.unprefixed.rule=Host(`hello-prefix2.local`)"
-      - "foo.traefik.http.routers.unprefixed.service=prefixed"
+      - "foo.traefik.http.routers.unprefixed.service=unprefixed"
       - "foo.traefik.http.routers.unprefixed.tls=true"
       - "foo.traefik.http.routers.unprefixed.tls.certresolver=default"
       - "foo.traefik.http.services.unprefixed.loadbalancer.server.scheme=http"

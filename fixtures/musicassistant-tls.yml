@@ -1,0 +1,11 @@
+services:
+  musicassistant:
+    image: helloworld
+    restart: unless-stopped
+    ports:
+      - 5555:5555
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.musicassistant.rule=Host(`musicassistant.example.com`)"
+      - "traefik.http.routers.musicassistant.entrypoints=websecure"
+      - "traefik.http.routers.musicassistant.tls=true"
