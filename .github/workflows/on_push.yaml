@@ -97,7 +97,7 @@ jobs:
         run: |
           # Manually push docker images
           docker images --format '{{ .Repository }}:{{ .Tag }}' \
-            | grep kop \
+            | grep traefik-kop \
             | grep -v none \
             | xargs -n 1 docker push
 
