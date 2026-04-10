@@ -26,6 +26,11 @@ type Config struct {
 	RedisUser    string
 	RedisPass    string
 	RedisDB      int
+
+	// Redis Sentinel
+	RedisSentinelAddrs  []string
+	RedisSentinelMaster string
+
 	PollInterval int64
 	Namespace    []string
 }

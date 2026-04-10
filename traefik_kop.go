@@ -111,9 +111,12 @@ func Start(config Config) {
 	}
 
 	dp := newDockerProvider(config)
-	store := NewRedisStore(config.Hostname, config.RedisAddr, config.RedisTTL, config.RedisUser, config.RedisPass, config.RedisDB)
+	store := NewRedisStore(config.Hostname, config.RedisAddr, config.RedisTTL, config.RedisUser, config.RedisPass, config.RedisDB, config.RedisSentinelAddrs, config.RedisSentinelMaster)
 	err = store.Ping()
 	if err != nil {
+		if len(config.RedisSentinelAddrs) > 0 {
+			log.Fatal().Msgf("failed to connect to redis via sentinel (master=%s): %s", config.RedisSentinelMaster, err)
+		}
 		if strings.Contains(err.Error(), config.RedisAddr) {
 			log.Fatal().Msgf("failed to connect to redis: %s", err)
 		}
