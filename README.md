@@ -128,12 +128,19 @@ GLOBAL OPTIONS:
    --docker-prefix value  Docker label prefix [$DOCKER_PREFIX]
    --poll-interval value  Poll interval for refreshing container list (default: 60) [$KOP_POLL_INTERVAL]
    --namespace value      Namespace to process containers for [$NAMESPACE]
+   --traefik-version value Target Traefik KV format version (2 or 3) (default: 3) [$TRAEFIK_VERSION]
    --verbose              Enable debug logging (default: false) [$VERBOSE, $DEBUG]
    --help, -h             show help
    --version, -V          Print the version (default: false)
 ```
 
 Most important are the `bind-ip`/`bind-interface` and `redis-addr` flags.
+
+### Traefik Version
+
+By default, `traefik-kop` outputs data in a format compatible with Traefik v3's KV store. Specifically, this ensures that arrays (such as `entryPoints` or `middlewares`) are serialized as comma-separated strings instead of numerically-indexed keys.
+
+If you are using Traefik v2 and encounter issues with array properties not being parsed, you can revert to the legacy behavior by setting the `--traefik-version=2` flag or the `TRAEFIK_VERSION=2` environment variable.
 
 ## IP Binding
 
