@@ -26,7 +26,7 @@ func TestConfigToKVAllowEmptyLabel(t *testing.T) {
 		TLS: &dynamic.TLSConfiguration{},
 	}
 
-	got, err := ConfigToKV(cfg)
+	got, err := ConfigToKV(cfg, 3)
 	require.NoError(t, err)
 	require.Equal(t, "true", got["traefik/http/routers/musicassistant/tls"])
 }
@@ -49,7 +49,7 @@ func TestConfigToKVUsesJSONLeafEncoding(t *testing.T) {
 		TLS: &dynamic.TLSConfiguration{},
 	}
 
-	got, err := ConfigToKV(cfg)
+	got, err := ConfigToKV(cfg, 3)
 	require.NoError(t, err)
 	require.Equal(t, "5s", got["traefik/http/services/musicassistant/loadBalancer/responseForwarding/flushInterval"])
 }

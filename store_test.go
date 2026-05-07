@@ -54,7 +54,7 @@ func Test_redisStore(t *testing.T) {
 	go server.Start()
 	defer server.ShutDown()
 
-	store := NewRedisStore("localhost", fmt.Sprintf("localhost:%d", port), 0, "", "", 0)
+	store := NewRedisStore("localhost", fmt.Sprintf("localhost:%d", port), 0, "", "", 0, 3)
 	processFileWithConfig(t, store, nil, "hellodetect.yml")
 	assertServiceIPs(t, store, []svc{
 		{"hello-detect", "http", "http://192.168.100.100:5577"},

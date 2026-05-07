@@ -74,7 +74,7 @@ func (s *testStore) Gets(key string) (map[string]string, error) {
 }
 
 func (s *testStore) Store(conf dynamic.Configuration) error {
-	kv, err := ConfigToKV(conf)
+	kv, err := ConfigToKV(conf, 3)
 	if err != nil {
 		return err
 	}

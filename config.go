@@ -26,8 +26,9 @@ type Config struct {
 	RedisUser    string
 	RedisPass    string
 	RedisDB      int
-	PollInterval int64
-	Namespace    []string
+	PollInterval   int64
+	Namespace      []string
+	TraefikVersion int
 }
 
 type ConfigFile struct {

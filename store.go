@@ -39,11 +39,12 @@ type RedisStore struct {
 	Hostname string
 	TTL      time.Duration // TTL in seconds, 0 means no TTL
 
-	client     *redis.Client
-	lastConfig *dynamic.Configuration
+	client         *redis.Client
+	lastConfig     *dynamic.Configuration
+	traefikVersion int
 }
 
-func NewRedisStore(hostname string, addr string, ttl int, user string, pass string, db int) TraefikStore {
+func NewRedisStore(hostname string, addr string, ttl int, user string, pass string, db int, traefikVersion int) TraefikStore {
 	log.Info().Msgf("creating new redis store at %s for hostname %s with %dsec TTL", addr, hostname, ttl)
 
 	store := &RedisStore{
@@ -58,6 +59,7 @@ func NewRedisStore(hostname string, addr string, ttl int, user string, pass stri
 			Password:        pass,
 			DB:              db,
 		}),
+		traefikVersion: traefikVersion,
 	}
 	return store
 }
@@ -117,7 +119,7 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 	s.removeOldKeys(conf.UDP.Routers, "udp_routers")
 	s.removeOldKeys(conf.UDP.Services, "udp_services")
 
-	kv, err := ConfigToKV(conf)
+	kv, err := ConfigToKV(conf, s.traefikVersion)
 	if err != nil {
 		return err
 	}

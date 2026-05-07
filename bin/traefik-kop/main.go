@@ -138,6 +138,12 @@ func flags() {
 				Value:   false,
 				EnvVars: []string{"VERBOSE", "DEBUG"},
 			},
+			&cli.IntFlag{
+				Name:    "traefik-version",
+				Usage:   "Target Traefik KV format version (2 or 3)",
+				Value:   3,
+				EnvVars: []string{"TRAEFIK_VERSION"},
+			},
 		},
 	}
 
@@ -203,9 +209,10 @@ func doStart(c *cli.Context) error {
 		RedisTTL:     c.Int("redis-ttl"),
 		DockerHost:   c.String("docker-host"),
 		DockerConfig: c.String("docker-config"),
-		DockerPrefix: c.String("docker-prefix"),
-		PollInterval: c.Int64("poll-interval"),
-		Namespace:    namespaces,
+		DockerPrefix:   c.String("docker-prefix"),
+		PollInterval:   c.Int64("poll-interval"),
+		Namespace:      namespaces,
+		TraefikVersion: c.Int("traefik-version"),
 	}
 
 	if config.BindIP == "" {

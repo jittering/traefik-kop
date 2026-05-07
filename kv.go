@@ -13,8 +13,9 @@ import (
 )
 
 type KV struct {
-	data map[string]interface{}
-	base string
+	data           map[string]interface{}
+	base           string
+	traefikVersion int
 }
 
 func NewKV() *KV {
@@ -48,8 +49,9 @@ func (kv *KV) add(val interface{}, format string, a ...interface{}) {
 
 // ConfigToKV flattens the given configuration into a format suitable for
 // putting into a KV store such as redis
-func ConfigToKV(conf dynamic.Configuration) (map[string]interface{}, error) {
+func ConfigToKV(conf dynamic.Configuration, traefikVersion int) (map[string]interface{}, error) {
 	kv := NewKV()
+	kv.traefikVersion = traefikVersion
 	_, err := walkTypedValue(kv, "traefik", reflect.TypeOf(conf), reflect.ValueOf(conf), walkOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kv: %w", err)
@@ -196,6 +198,15 @@ func walkSliceValue(kv *KV, path string, typ reflect.Type, val reflect.Value) (b
 
 	if val.Len() == 0 {
 		return false, nil
+	}
+
+	if kv.traefikVersion >= 3 && typ.Elem().Kind() == reflect.String {
+		var parts []string
+		for i := 0; i < val.Len(); i++ {
+			parts = append(parts, val.Index(i).String())
+		}
+		kv.add(strings.Join(parts, ","), path)
+		return true, nil
 	}
 
 	addedAny := false

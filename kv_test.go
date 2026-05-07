@@ -15,7 +15,7 @@ func Test_configToKV(t *testing.T) {
 	_, err := toml.DecodeFile("./fixtures/sample.toml", &cfg)
 	require.NoError(t, err)
 
-	got, err := ConfigToKV(*cfg)
+	got, err := ConfigToKV(*cfg, 3)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
@@ -28,7 +28,7 @@ func Test_configToKV(t *testing.T) {
 	err = json.Unmarshal([]byte(NGINX_CONF_JSON), cfg)
 	require.NoError(t, err)
 
-	got, err = ConfigToKV(*cfg)
+	got, err = ConfigToKV(*cfg, 3)
 	require.NoError(t, err)
 	// dumpKV(got)
 	require.NotContains(t, got, "traefik/http/routers/nginx@docker/service")
