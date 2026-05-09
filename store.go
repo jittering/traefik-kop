@@ -135,6 +135,13 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 		s.client.Set(context.Background(), k, v, s.TTL)
 	}
 
+	// Clean up stale loadBalancer/servers/N entries within services.
+	// removeOldKeys() only diffs at the service name level, so when a service
+	// goes from 2 servers to 1, the old servers/1/* keys are left behind.
+	s.removeStaleServerKeys(kv, conf.HTTP.Services, "http")
+	s.removeStaleServerKeys(kv, conf.TCP.Services, "tcp")
+	s.removeStaleServerKeys(kv, conf.UDP.Services, "udp")
+
 	s.swapKeys(s.sk("http_middlewares"))
 	s.swapKeys(s.sk("http_routers"))
 	s.swapKeys(s.sk("http_services"))
@@ -245,6 +252,30 @@ func (s *RedisStore) removeOldKeys(m interface{}, setname string) error {
 			return errors.Wrap(err, "diff failed")
 		}
 		return s.removeKeys(setname, res)
+	}
+}
+
+func (s *RedisStore) removeStaleServerKeys(kv map[string]interface{}, services interface{}, proto string) {
+	ctx := context.Background()
+	svcMap := reflect.ValueOf(services)
+	if svcMap.Kind() != reflect.Map {
+		return
+	}
+
+	for _, nameVal := range svcMap.MapKeys() {
+		name := stripDocker(nameVal.String())
+		prefix := fmt.Sprintf("traefik/%s/services/%s/loadBalancer/servers/", proto, name)
+
+		existingKeys, err := s.client.Keys(ctx, prefix+"*").Result()
+		if err != nil {
+			continue
+		}
+		for _, key := range existingKeys {
+			if _, exists := kv[key]; !exists {
+				log.Debug().Msgf("removing stale server key: %s", key)
+				s.client.Unlink(ctx, key)
+			}
+		}
 	}
 }
 
