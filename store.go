@@ -43,21 +43,35 @@ type RedisStore struct {
 	lastConfig *dynamic.Configuration
 }
 
-func NewRedisStore(hostname string, addr string, ttl int, user string, pass string, db int) TraefikStore {
-	log.Info().Msgf("creating new redis store at %s for hostname %s with %dsec TTL", addr, hostname, ttl)
+func NewRedisStore(hostname string, addr string, ttl int, user string, pass string, db int, sentinelAddrs []string, sentinelMaster string) TraefikStore {
+	var client *redis.Client
 
-	store := &RedisStore{
-		Hostname: hostname,
-		TTL:      time.Duration(ttl) * time.Second,
-
-		client: redis.NewClient(&redis.Options{
+	if len(sentinelAddrs) > 0 && sentinelMaster != "" {
+		log.Info().Msgf("creating new redis store via sentinel (master=%s, sentinels=%v) for hostname %s with %dsec TTL", sentinelMaster, sentinelAddrs, hostname, ttl)
+		client = redis.NewFailoverClient(&redis.FailoverOptions{
+			MasterName:      sentinelMaster,
+			SentinelAddrs:   sentinelAddrs,
+			DisableIdentity: true,
+			Username:        user,
+			Password:        pass,
+			DB:              db,
+		})
+	} else {
+		log.Info().Msgf("creating new redis store at %s for hostname %s with %dsec TTL", addr, hostname, ttl)
+		client = redis.NewClient(&redis.Options{
 			ClientName:      "",
 			DisableIdentity: true,
 			Addr:            addr,
 			Username:        user,
 			Password:        pass,
 			DB:              db,
-		}),
+		})
+	}
+
+	store := &RedisStore{
+		Hostname: hostname,
+		TTL:      time.Duration(ttl) * time.Second,
+		client:   client,
 	}
 	return store
 }

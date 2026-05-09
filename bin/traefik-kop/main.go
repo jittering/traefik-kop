@@ -106,6 +106,16 @@ func flags() {
 				EnvVars: []string{"REDIS_TTL"},
 			},
 			&cli.StringFlag{
+				Name:    "redis-sentinel-addrs",
+				Usage:   "Comma-separated list of Redis Sentinel addresses (e.g., host1:26379,host2:26379)",
+				EnvVars: []string{"REDIS_SENTINEL_ADDRS"},
+			},
+			&cli.StringFlag{
+				Name:    "redis-sentinel-master",
+				Usage:   "Redis Sentinel master name",
+				EnvVars: []string{"REDIS_SENTINEL_MASTER"},
+			},
+			&cli.StringFlag{
 				Name:    "docker-host",
 				Usage:   "Docker endpoint",
 				Value:   defaultDockerHost,
@@ -192,24 +202,35 @@ func doStart(c *cli.Context) error {
 		bindIP = getDefaultIP(iface)
 	}
 
+	sentinelAddrs := splitStringArr(c.String("redis-sentinel-addrs"))
+
 	config := traefikkop.Config{
-		Hostname:     c.String("hostname"),
-		BindIP:       bindIP,
-		SkipReplace:  c.Bool("skip-replace"),
-		RedisAddr:    c.String("redis-addr"),
-		RedisUser:    c.String("redis-user"),
-		RedisPass:    c.String("redis-pass"),
-		RedisDB:      c.Int("redis-db"),
-		RedisTTL:     c.Int("redis-ttl"),
-		DockerHost:   c.String("docker-host"),
-		DockerConfig: c.String("docker-config"),
-		DockerPrefix: c.String("docker-prefix"),
-		PollInterval: c.Int64("poll-interval"),
-		Namespace:    namespaces,
+		Hostname:            c.String("hostname"),
+		BindIP:              bindIP,
+		SkipReplace:         c.Bool("skip-replace"),
+		RedisAddr:           c.String("redis-addr"),
+		RedisUser:           c.String("redis-user"),
+		RedisPass:           c.String("redis-pass"),
+		RedisDB:             c.Int("redis-db"),
+		RedisTTL:            c.Int("redis-ttl"),
+		RedisSentinelAddrs:  sentinelAddrs,
+		RedisSentinelMaster: c.String("redis-sentinel-master"),
+		DockerHost:          c.String("docker-host"),
+		DockerConfig:        c.String("docker-config"),
+		DockerPrefix:        c.String("docker-prefix"),
+		PollInterval:        c.Int64("poll-interval"),
+		Namespace:           namespaces,
 	}
 
 	if config.BindIP == "" {
 		log.Fatal().Msg("Bind IP cannot be empty")
+	}
+
+	if len(config.RedisSentinelAddrs) > 0 && config.RedisSentinelMaster == "" {
+		log.Fatal().Msg("--redis-sentinel-master is required when using --redis-sentinel-addrs")
+	}
+	if config.RedisSentinelMaster != "" && len(config.RedisSentinelAddrs) == 0 {
+		log.Fatal().Msg("--redis-sentinel-addrs is required when using --redis-sentinel-master")
 	}
 
 	if os.Getenv("DOCKER_HOST") != "" {

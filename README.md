@@ -30,6 +30,7 @@ them to a given `redis` instance. Simply configure your `traefik` node with a
   - [Contents](#contents)
   - [Usage](#usage)
   - [Configuration](#configuration)
+  - [Redis Sentinel](#redis-sentinel)
   - [IP Binding](#ip-binding)
     - [bind-ip](#bind-ip)
     - [bind-interface](#bind-interface)
@@ -122,8 +123,10 @@ GLOBAL OPTIONS:
    --redis-user value     Redis username (default: "default") [$REDIS_USER]
    --redis-pass value     Redis password (if needed) [$REDIS_PASS]
    --redis-db value       Redis DB number (default: 0) [$REDIS_DB]
-   --redis-ttl value      Redis TTL (in seconds) (default: 0) [$REDIS_TTL]
-   --docker-host value    Docker endpoint (default: "unix:///var/run/docker.sock") [$DOCKER_ADDR]
+   --redis-ttl value              Redis TTL (in seconds) (default: 0) [$REDIS_TTL]
+   --redis-sentinel-addrs value   Comma-separated list of Redis Sentinel addresses (e.g., host1:26379,host2:26379) [$REDIS_SENTINEL_ADDRS]
+   --redis-sentinel-master value  Redis Sentinel master name [$REDIS_SENTINEL_MASTER]
+   --docker-host value            Docker endpoint (default: "unix:///var/run/docker.sock") [$DOCKER_ADDR]
    --docker-config value  Docker provider config (file must end in .yaml) [$DOCKER_CONFIG]
    --docker-prefix value  Docker label prefix [$DOCKER_PREFIX]
    --poll-interval value  Poll interval for refreshing container list (default: 60) [$KOP_POLL_INTERVAL]
@@ -134,6 +137,31 @@ GLOBAL OPTIONS:
 ```
 
 Most important are the `bind-ip`/`bind-interface` and `redis-addr` flags.
+
+## Redis Sentinel
+
+If your Redis setup uses [Sentinel](https://redis.io/docs/management/sentinel/)
+for high availability, you can configure `traefik-kop` to connect through
+Sentinel instead of directly to a Redis instance. This ensures `traefik-kop`
+always writes to the current master, even after a failover.
+
+```yaml
+services:
+  traefik-kop:
+    image: "ghcr.io/jittering/traefik-kop:latest"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - "REDIS_SENTINEL_ADDRS=sentinel1:26379,sentinel2:26379,sentinel3:26379"
+      - "REDIS_SENTINEL_MASTER=mymaster"
+      - "BIND_IP=192.168.1.75"
+```
+
+When Sentinel is configured, the `--redis-addr` flag is ignored.
+Both `--redis-sentinel-addrs` and `--redis-sentinel-master` must be provided
+together. The `--redis-user`, `--redis-pass`, and `--redis-db` flags still apply
+and are used for authenticating with the Redis master discovered by Sentinel.
 
 ## IP Binding
 
