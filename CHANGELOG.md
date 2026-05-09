@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.20.0
+
+This release reworks the conversion of docker labels to redis, finally closing the gap with how
+traefik natively processes them.
+
+### New Features
+
+- Redis Sential support ([#92, thanks @Kuppit](https://github.com/jittering/traefik-kop/pull/92))
+
+### Fixes
+
+- Improved serialization of config to redis KV [[#88](https://github.com/jittering/traefik-kop/pull/88)]
+- clean up stale loadBalancer/servers entries on config update ([#90, thanks @Kuppit](https://github.com/jittering/traefik-kop/pull/90))
+
 ## v0.19.4
 
 - disallow using DOCKER_HOST var together with prefixes (resolves #83)
