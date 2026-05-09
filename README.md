@@ -30,7 +30,6 @@ them to a given `redis` instance. Simply configure your `traefik` node with a
   - [Contents](#contents)
   - [Usage](#usage)
   - [Configuration](#configuration)
-  - [Redis Sentinel](#redis-sentinel)
   - [IP Binding](#ip-binding)
     - [bind-ip](#bind-ip)
     - [bind-interface](#bind-interface)
@@ -43,6 +42,7 @@ them to a given `redis` instance. Simply configure your `traefik` node with a
     - [Namespace via label prefix](#namespace-via-label-prefix)
   - [Docker API](#docker-api)
     - [Traefik Docker Provider Config](#traefik-docker-provider-config)
+  - [Redis Sentinel](#redis-sentinel)
   - [Releasing](#releasing)
   - [License](#license)
 
@@ -137,31 +137,6 @@ GLOBAL OPTIONS:
 ```
 
 Most important are the `bind-ip`/`bind-interface` and `redis-addr` flags.
-
-## Redis Sentinel
-
-If your Redis setup uses [Sentinel](https://redis.io/docs/management/sentinel/)
-for high availability, you can configure `traefik-kop` to connect through
-Sentinel instead of directly to a Redis instance. This ensures `traefik-kop`
-always writes to the current master, even after a failover.
-
-```yaml
-services:
-  traefik-kop:
-    image: "ghcr.io/jittering/traefik-kop:latest"
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - "REDIS_SENTINEL_ADDRS=sentinel1:26379,sentinel2:26379,sentinel3:26379"
-      - "REDIS_SENTINEL_MASTER=mymaster"
-      - "BIND_IP=192.168.1.75"
-```
-
-When Sentinel is configured, the `--redis-addr` flag is ignored.
-Both `--redis-sentinel-addrs` and `--redis-sentinel-master` must be provided
-together. The `--redis-user`, `--redis-pass`, and `--redis-db` flags still apply
-and are used for authenticating with the Redis master discovered by Sentinel.
 
 ## IP Binding
 
@@ -413,6 +388,31 @@ services:
         docker:
           defaultRule: Host(`{{.Name}}.foo.example.com`)
 ```
+
+## Redis Sentinel
+
+If your Redis setup uses [Sentinel](https://redis.io/docs/management/sentinel/)
+for high availability, you can configure `traefik-kop` to connect through
+Sentinel instead of directly to a Redis instance. This ensures `traefik-kop`
+always writes to the current master, even after a failover.
+
+```yaml
+services:
+  traefik-kop:
+    image: "ghcr.io/jittering/traefik-kop:latest"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - "REDIS_SENTINEL_ADDRS=sentinel1:26379,sentinel2:26379,sentinel3:26379"
+      - "REDIS_SENTINEL_MASTER=mymaster"
+      - "BIND_IP=192.168.1.75"
+```
+
+When Sentinel is configured, the `--redis-addr` flag is ignored.
+Both `--redis-sentinel-addrs` and `--redis-sentinel-master` must be provided
+together. The `--redis-user`, `--redis-pass`, and `--redis-db` flags still apply
+and are used for authenticating with the Redis master discovered by Sentinel.
 
 ## Releasing
 
