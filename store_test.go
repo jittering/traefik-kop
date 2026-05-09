@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/echovault/sugardb/sugardb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,4 +61,64 @@ func Test_redisStore(t *testing.T) {
 		{"hello-detect", "http", "http://192.168.100.100:5577"},
 		{"hello-detect2", "http", "http://192.168.100.100:5577"},
 	})
+}
+
+func Test_redisStoreRemovesStaleServerKeysOnUpdate(t *testing.T) {
+	server, err := miniredis.Run()
+	require.NoError(t, err)
+	defer server.Close()
+
+	store := NewRedisStore("localhost", server.Addr(), 0, "", "", 0)
+
+	initial := &dynamic.Configuration{}
+	err = json.Unmarshal([]byte(`{
+		"http": {
+			"services": {
+				"app@docker": {
+					"loadBalancer": {
+						"servers": [
+							{"url": "http://10.0.0.1:8080"},
+							{"url": "http://10.0.0.2:8080"}
+						]
+					}
+				}
+			}
+		},
+		"tcp": {},
+		"udp": {}
+	}`), initial)
+	require.NoError(t, err)
+	require.NoError(t, store.Store(*initial))
+
+	staleKey := "traefik/http/services/app/loadBalancer/servers/1/url"
+	val, err := store.Get(staleKey)
+	require.NoError(t, err)
+	require.Equal(t, "http://10.0.0.2:8080", val)
+
+	updated := &dynamic.Configuration{}
+	err = json.Unmarshal([]byte(`{
+		"http": {
+			"services": {
+				"app@docker": {
+					"loadBalancer": {
+						"servers": [
+							{"url": "http://10.0.0.3:8080"}
+						]
+					}
+				}
+			}
+		},
+		"tcp": {},
+		"udp": {}
+	}`), updated)
+	require.NoError(t, err)
+	require.NoError(t, store.Store(*updated))
+
+	remaining, err := store.Get("traefik/http/services/app/loadBalancer/servers/0/url")
+	require.NoError(t, err)
+	require.Equal(t, "http://10.0.0.3:8080", remaining)
+
+	stale, err := store.Get(staleKey)
+	require.NoError(t, err)
+	require.Empty(t, stale)
 }
