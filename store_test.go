@@ -68,7 +68,7 @@ func Test_redisStoreRemovesStaleServerKeysOnUpdate(t *testing.T) {
 	require.NoError(t, err)
 	defer server.Close()
 
-	store := NewRedisStore("localhost", server.Addr(), 0, "", "", 0)
+	store := NewRedisStore("localhost", server.Addr(), 0, "", "", 0, nil, "")
 
 	initial := &dynamic.Configuration{}
 	err = json.Unmarshal([]byte(`{
