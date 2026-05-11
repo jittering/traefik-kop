@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.20.1
+
+### Fixes
+
+- Abort previous retry thread on next poll loop (resolves [#94](https://github.com/jittering/traefik-kop/issues/94))
+
 ## v0.20.0
 
 This release reworks the conversion of docker labels to redis, finally closing the gap with how
