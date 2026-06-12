@@ -91,26 +91,30 @@ func Start(config Config) {
 		log.Fatal().Msgf("failed to create docker client: %s", err)
 	}
 
-	if config.DockerPrefix != "" {
-		// use proxy to filter by label prefix
-		//
-		// Docker client is used in two places:
-		// 		- Docker Provider which is used by traefik
-		//    - dockerCache used by traefik-kop to lookup container info
-		//
-		// The real docker client is only used by the proxy.
-		// All other usage goes via docker client connecting to the proxy.
+	dp := newDockerProvider(config)
 
-		dockerProxy := createProxy(dockerClient, config.DockerPrefix)
+	// When a label prefix is set, or when containers are not exposed by
+	// default, route the docker API through an in-process proxy. The proxy
+	// strips the label prefix and hides containers traefik-kop would not
+	// expose, so the docker provider never inspects or reacts to them.
+	//
+	// Docker client is used in two places:
+	// 		- Docker Provider which is used by traefik
+	//    - dockerCache used by traefik-kop to lookup container info
+	//
+	// The real docker client is only used by the proxy.
+	// All other usage goes via docker client connecting to the proxy.
+	if config.DockerPrefix != "" || !dp.ExposedByDefault {
+		dockerProxy := createProxy(dockerClient, config.DockerPrefix, dp.ExposedByDefault)
 		_, dockerProxyAddr := dockerProxy.start()
 		config.DockerHost = dockerProxyAddr
 		dockerClient, err = createDockerClient(dockerProxyAddr)
 		if err != nil {
 			log.Fatal().Msgf("failed to create docker client for proxy: %s", err)
 		}
+		// rebuild the provider so it connects through the proxy
+		dp = newDockerProvider(config)
 	}
-
-	dp := newDockerProvider(config)
 	store := NewRedisStore(config.Hostname, config.RedisAddr, config.RedisTTL, config.RedisUser, config.RedisPass, config.RedisDB, config.RedisSentinelAddrs, config.RedisSentinelMaster)
 	err = store.Ping()
 	if err != nil {
