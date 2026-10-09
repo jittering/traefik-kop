@@ -43,6 +43,7 @@ them to a given `redis` instance. Simply configure your `traefik` node with a
   - [Docker API](#docker-api)
     - [Traefik Docker Provider Config](#traefik-docker-provider-config)
   - [Redis Sentinel](#redis-sentinel)
+  - [Redis TLS](#redis-tls)
   - [Releasing](#releasing)
   - [License](#license)
 
@@ -124,6 +125,12 @@ GLOBAL OPTIONS:
    --redis-pass value     Redis password (if needed) [$REDIS_PASS]
    --redis-db value       Redis DB number (default: 0) [$REDIS_DB]
    --redis-ttl value              Redis TTL (in seconds) (default: 0) [$REDIS_TTL]
+   --redis-tls                    Connect to Redis over TLS (default: false) [$REDIS_TLS]
+   --redis-tls-ca value           Path to PEM CA bundle used to verify the Redis server (default: system roots) [$REDIS_TLS_CA]
+   --redis-tls-cert value         Path to PEM client certificate for Redis mutual TLS [$REDIS_TLS_CERT]
+   --redis-tls-key value          Path to PEM client private key for Redis mutual TLS [$REDIS_TLS_KEY]
+   --redis-tls-server-name value  Server name used to verify the Redis certificate [$REDIS_TLS_SERVER_NAME]
+   --redis-tls-insecure-skip-verify  Skip verification of the Redis server certificate (insecure) [$REDIS_TLS_INSECURE_SKIP_VERIFY]
    --redis-sentinel-addrs value   Comma-separated list of Redis Sentinel addresses (e.g., host1:26379,host2:26379) [$REDIS_SENTINEL_ADDRS]
    --redis-sentinel-master value  Redis Sentinel master name [$REDIS_SENTINEL_MASTER]
    --docker-host value            Docker endpoint (default: "unix:///var/run/docker.sock") [$DOCKER_ADDR]
@@ -413,6 +420,38 @@ When Sentinel is configured, the `--redis-addr` flag is ignored.
 Both `--redis-sentinel-addrs` and `--redis-sentinel-master` must be provided
 together. The `--redis-user`, `--redis-pass`, and `--redis-db` flags still apply
 and are used for authenticating with the Redis master discovered by Sentinel.
+
+## Redis TLS
+
+To connect to a TLS-only Redis (optionally requiring client certificates),
+enable `REDIS_TLS` and point at the PEM files. The server certificate is
+verified by default against `REDIS_TLS_CA` (or the system roots if unset).
+
+```yaml
+services:
+  traefik-kop:
+    image: "ghcr.io/jittering/traefik-kop:latest"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./certs:/certs:ro
+    environment:
+      - "REDIS_ADDR=redis.example.com:6380"
+      - "REDIS_USER=kop"
+      - "REDIS_PASS=secret"
+      - "REDIS_TLS=true"
+      - "REDIS_TLS_CA=/certs/ca.pem"
+      # mutual TLS (both required together)
+      - "REDIS_TLS_CERT=/certs/client.pem"
+      - "REDIS_TLS_KEY=/certs/client.key"
+      # only if the address does not match a name/IP in the server certificate
+      # - "REDIS_TLS_SERVER_NAME=redis.example.com"
+      - "BIND_IP=192.168.1.75"
+```
+
+Invalid or unreadable certificate files cause `traefik-kop` to exit at startup.
+`REDIS_TLS_INSECURE_SKIP_VERIFY` disables server verification and should be
+avoided. TLS settings also apply when using Sentinel.
 
 ## Releasing
 

@@ -55,7 +55,7 @@ func Test_redisStore(t *testing.T) {
 	go server.Start()
 	defer server.ShutDown()
 
-	store := NewRedisStore("localhost", fmt.Sprintf("localhost:%d", port), 0, "", "", 0, nil, "")
+	store := NewRedisStore("localhost", fmt.Sprintf("localhost:%d", port), 0, "", "", 0, nil, "", nil)
 	processFileWithConfig(t, store, nil, "hellodetect.yml")
 	assertServiceIPs(t, store, []svc{
 		{"hello-detect", "http", "http://192.168.100.100:5577"},
@@ -68,7 +68,7 @@ func Test_redisStoreRemovesStaleServerKeysOnUpdate(t *testing.T) {
 	require.NoError(t, err)
 	defer server.Close()
 
-	store := NewRedisStore("localhost", server.Addr(), 0, "", "", 0, nil, "")
+	store := NewRedisStore("localhost", server.Addr(), 0, "", "", 0, nil, "", nil)
 
 	initial := &dynamic.Configuration{}
 	err = json.Unmarshal([]byte(`{

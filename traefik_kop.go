@@ -111,7 +111,11 @@ func Start(config Config) {
 	}
 
 	dp := newDockerProvider(config)
-	store := NewRedisStore(config.Hostname, config.RedisAddr, config.RedisTTL, config.RedisUser, config.RedisPass, config.RedisDB, config.RedisSentinelAddrs, config.RedisSentinelMaster)
+	redisTLS, err := config.RedisTLS.Build()
+	if err != nil {
+		log.Fatal().Msgf("invalid redis TLS configuration: %s", err)
+	}
+	store := NewRedisStore(config.Hostname, config.RedisAddr, config.RedisTTL, config.RedisUser, config.RedisPass, config.RedisDB, config.RedisSentinelAddrs, config.RedisSentinelMaster, redisTLS)
 	err = store.Ping()
 	if err != nil {
 		if len(config.RedisSentinelAddrs) > 0 {

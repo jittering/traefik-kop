@@ -27,6 +27,9 @@ type Config struct {
 	RedisPass    string
 	RedisDB      int
 
+	// Redis TLS / mTLS
+	RedisTLS RedisTLSConfig
+
 	// Redis Sentinel
 	RedisSentinelAddrs  []string
 	RedisSentinelMaster string
