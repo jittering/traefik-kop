@@ -6,6 +6,20 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      # Redis TLS: directory holding the PEM files referenced below
+      # - ./certs:/certs:ro
     environment:
       - "REDIS_ADDR=192.168.1.50:6379"
       - "BIND_IP=192.168.1.75"
+
+      # Optional: connect to a TLS-only Redis (see "Redis TLS" in the README).
+      # Use the TLS port in REDIS_ADDR, e.g. 192.168.1.50:6380
+      # - "REDIS_USER=kop"
+      # - "REDIS_PASS=secret"
+      # - "REDIS_TLS=true"
+      # - "REDIS_TLS_CA=/certs/ca.pem"
+      # Mutual TLS (cert and key must be set together):
+      # - "REDIS_TLS_CERT=/certs/client.pem"
+      # - "REDIS_TLS_KEY=/certs/client.key"
+      # Needed when REDIS_ADDR is an IP or alias not listed in the server cert:
+      # - "REDIS_TLS_SERVER_NAME=redis.example.com"
