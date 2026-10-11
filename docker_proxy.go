@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
@@ -32,20 +33,36 @@ func getAvailablePort() (net.Listener, error) {
 	return l, nil
 }
 
-// DockerProxyServer is a proxy server that filters docker labels based on a prefix
+// DockerProxyServer is a proxy server that filters docker labels based on a
+// prefix and hides containers traefik-kop would not expose
 type DockerProxyServer struct {
-	upstream    client.APIClient
-	labelPrefix string
+	upstream         client.APIClient
+	labelPrefix      string
+	exposedByDefault bool
 }
 
-func createProxy(upstream client.APIClient, labelPrefix string) *DockerProxyServer {
+func createProxy(upstream client.APIClient, labelPrefix string, exposedByDefault bool) *DockerProxyServer {
 	if labelPrefix != "" && !strings.HasSuffix(labelPrefix, ".") {
 		labelPrefix += "."
 	}
 	return &DockerProxyServer{
-		upstream:    upstream,
-		labelPrefix: labelPrefix,
+		upstream:         upstream,
+		labelPrefix:      labelPrefix,
+		exposedByDefault: exposedByDefault,
 	}
+}
+
+// shouldExpose reports whether traefik-kop would expose a container with the
+// given (prefix-stripped) labels, mirroring traefik's exposedByDefault and
+// traefik.enable handling.
+func (s *DockerProxyServer) shouldExpose(labels map[string]string) bool {
+	enabled := s.exposedByDefault
+	if v, ok := labels["traefik.enable"]; ok {
+		if b, err := strconv.ParseBool(v); err == nil {
+			enabled = b
+		}
+	}
+	return enabled
 }
 
 func (s *DockerProxyServer) filterLabels(labels map[string]string) map[string]string {
@@ -78,17 +95,22 @@ func (s *DockerProxyServer) handleVersion(c *fiber.Ctx) error {
 }
 
 func (s *DockerProxyServer) handleContainersList(c *fiber.Ctx) error {
-	containers, err := s.upstream.ContainerList(context.Background(), container.ListOptions{})
+	containers, err := s.upstream.ContainerList(context.Background(), container.ListOptions{All: c.QueryBool("all")})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	// modify labels
-	for _, container := range containers {
-		container.Labels = s.filterLabels(container.Labels)
+	filtered := make([]container.Summary, 0, len(containers))
+	for i := range containers {
+		labels := s.filterLabels(containers[i].Labels)
+		if !s.shouldExpose(labels) {
+			continue
+		}
+		containers[i].Labels = labels
+		filtered = append(filtered, containers[i])
 	}
 
-	return c.JSON(containers)
+	return c.JSON(filtered)
 }
 
 func (s *DockerProxyServer) handleContainerInspect(c *fiber.Ctx) error {
@@ -122,8 +144,12 @@ func (s *DockerProxyServer) handleEvents(c *fiber.Ctx) error {
 		for {
 			select {
 			case event := <-eventsCh:
-				if event.Type == "container" && event.Actor.Attributes != nil {
+				if event.Type == "container" {
 					event.Actor.Attributes = s.filterLabels(event.Actor.Attributes)
+					// drop events from unexposed containers so the provider never re-lists them
+					if !s.shouldExpose(event.Actor.Attributes) {
+						continue
+					}
 				}
 
 				err := encoder.Encode(event)

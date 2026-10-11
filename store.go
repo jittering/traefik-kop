@@ -2,6 +2,7 @@ package traefikkop
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -43,7 +44,7 @@ type RedisStore struct {
 	lastConfig *dynamic.Configuration
 }
 
-func NewRedisStore(hostname string, addr string, ttl int, user string, pass string, db int, sentinelAddrs []string, sentinelMaster string) TraefikStore {
+func NewRedisStore(hostname string, addr string, ttl int, user string, pass string, db int, sentinelAddrs []string, sentinelMaster string, tlsConf *tls.Config) TraefikStore {
 	var client *redis.Client
 
 	if len(sentinelAddrs) > 0 && sentinelMaster != "" {
@@ -55,6 +56,7 @@ func NewRedisStore(hostname string, addr string, ttl int, user string, pass stri
 			Username:        user,
 			Password:        pass,
 			DB:              db,
+			TLSConfig:       tlsConf,
 		})
 	} else {
 		log.Info().Msgf("creating new redis store at %s for hostname %s with %dsec TTL", addr, hostname, ttl)
@@ -65,6 +67,7 @@ func NewRedisStore(hostname string, addr string, ttl int, user string, pass stri
 			Username:        user,
 			Password:        pass,
 			DB:              db,
+			TLSConfig:       tlsConf,
 		})
 	}
 

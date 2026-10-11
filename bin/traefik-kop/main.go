@@ -105,6 +105,36 @@ func flags() {
 				Value:   0,
 				EnvVars: []string{"REDIS_TTL"},
 			},
+			&cli.BoolFlag{
+				Name:    "redis-tls",
+				Usage:   "Connect to Redis over TLS",
+				EnvVars: []string{"REDIS_TLS"},
+			},
+			&cli.StringFlag{
+				Name:    "redis-tls-ca",
+				Usage:   "Path to PEM CA bundle used to verify the Redis server (default: system roots)",
+				EnvVars: []string{"REDIS_TLS_CA"},
+			},
+			&cli.StringFlag{
+				Name:    "redis-tls-cert",
+				Usage:   "Path to PEM client certificate for Redis mutual TLS",
+				EnvVars: []string{"REDIS_TLS_CERT"},
+			},
+			&cli.StringFlag{
+				Name:    "redis-tls-key",
+				Usage:   "Path to PEM client private key for Redis mutual TLS",
+				EnvVars: []string{"REDIS_TLS_KEY"},
+			},
+			&cli.StringFlag{
+				Name:    "redis-tls-server-name",
+				Usage:   "Server name used to verify the Redis certificate (default: host from redis-addr)",
+				EnvVars: []string{"REDIS_TLS_SERVER_NAME"},
+			},
+			&cli.BoolFlag{
+				Name:    "redis-tls-insecure-skip-verify",
+				Usage:   "Skip verification of the Redis server certificate (insecure)",
+				EnvVars: []string{"REDIS_TLS_INSECURE_SKIP_VERIFY"},
+			},
 			&cli.StringFlag{
 				Name:    "redis-sentinel-addrs",
 				Usage:   "Comma-separated list of Redis Sentinel addresses (e.g., host1:26379,host2:26379)",
@@ -210,6 +240,15 @@ func doStart(c *cli.Context) error {
 
 	sentinelAddrs := splitStringArr(c.String("redis-sentinel-addrs"))
 
+	redisTLS := traefikkop.RedisTLSConfig{
+		Enabled:            c.Bool("redis-tls"),
+		CAFile:             c.String("redis-tls-ca"),
+		CertFile:           c.String("redis-tls-cert"),
+		KeyFile:            c.String("redis-tls-key"),
+		ServerName:         c.String("redis-tls-server-name"),
+		InsecureSkipVerify: c.Bool("redis-tls-insecure-skip-verify"),
+	}
+
 	config := traefikkop.Config{
 		Hostname:             c.String("hostname"),
 		BindIP:               bindIP,
@@ -219,6 +258,7 @@ func doStart(c *cli.Context) error {
 		RedisPass:            c.String("redis-pass"),
 		RedisDB:              c.Int("redis-db"),
 		RedisTTL:             c.Int("redis-ttl"),
+		RedisTLS:             redisTLS,
 		RedisSentinelAddrs:   sentinelAddrs,
 		RedisSentinelMaster:  c.String("redis-sentinel-master"),
 		DockerHost:           c.String("docker-host"),
