@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -38,8 +39,9 @@ func collectKeys(m interface{}) []string {
 
 type RedisStore struct {
 	Hostname string
-	TTL      time.Duration // TTL in seconds, 0 means no TTL
+	TTL      time.Duration // 0 means no TTL
 
+	mu         sync.Mutex // serializes configuration writes and TTL renewal
 	client     *redis.Client
 	lastConfig *dynamic.Configuration
 }
@@ -85,7 +87,7 @@ func (s *RedisStore) Ping() error {
 
 // sk returns the 'set key' for keeping track of our services/routers/middlewares
 // e.g., traefik_http_routers@culture.local
-func (s RedisStore) sk(b string) string {
+func (s *RedisStore) sk(b string) string {
 	return fmt.Sprintf("traefik_%s@%s", b, s.Hostname)
 }
 
@@ -125,6 +127,13 @@ func (s *RedisStore) Gets(key string) (map[string]string, error) {
 var svcAddrRe = regexp.MustCompile(`^traefik/(tcp|udp|http)/services/([^/]+)/loadBalancer/servers/\d+/(address|url)$`)
 
 func (s *RedisStore) Store(conf dynamic.Configuration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.store(conf)
+}
+
+// store requires mu to be held by the caller.
+func (s *RedisStore) store(conf dynamic.Configuration) error {
 	s.removeOldKeys(conf.HTTP.Middlewares, "http_middlewares")
 	s.removeOldKeys(conf.HTTP.Routers, "http_routers")
 	s.removeOldKeys(conf.HTTP.Services, "http_services")
@@ -149,7 +158,9 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 			log.Info().Str("service", matches[2]).Str("service-type", matches[1]).Msgf("publishing %s", v)
 		}
 
-		s.client.Set(context.Background(), k, v, s.TTL)
+		if err := s.client.Set(context.Background(), k, v, s.TTL).Err(); err != nil {
+			return errors.Wrapf(err, "failed to write key %s", k)
+		}
 	}
 
 	// Clean up stale loadBalancer/servers/N entries within services.
@@ -169,11 +180,12 @@ func (s *RedisStore) Store(conf dynamic.Configuration) error {
 	s.swapKeys(s.sk("udp_services"))
 
 	// Update sentinel key with current timestamp
-	s.client.Set(context.Background(), s.sk("kop_last_update"), time.Now().Unix(), s.TTL)
+	if err := s.client.Set(context.Background(), s.sk("kop_last_update"), time.Now().Unix(), s.TTL).Err(); err != nil {
+		return errors.Wrap(err, "failed to write Redis sentinel")
+	}
 
 	// Store a copy of the configuration in case redis restarts
-	configCopy := conf
-	s.lastConfig = &configCopy
+	s.lastConfig = conf.DeepCopy()
 
 	return nil
 }
@@ -189,15 +201,45 @@ func (s *RedisStore) NeedsUpdate() bool {
 	return exists == 0
 }
 
-// Push the last configuration if needed
+// Renew published keys before they expire, or restore the configuration if Redis
+// lost it. Only touch keys in this instance's last published configuration.
 func (s *RedisStore) KeepConfAlive() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.lastConfig == nil {
 		return nil // No config to push yet
 	}
 
-	if s.NeedsUpdate() {
-		log.Warn().Msg("Redis seems to have restarted and needs to be updated. Pushing last known configuration")
-		return s.Store(*s.lastConfig)
+	ctx := context.Background()
+	exists, err := s.client.Exists(ctx, s.sk("kop_last_update")).Result()
+	if err != nil {
+		return errors.Wrap(err, "failed to check Redis sentinel")
+	}
+	if exists == 0 {
+		log.Warn().Msg("Redis configuration sentinel is missing. Pushing last known configuration")
+		return s.store(*s.lastConfig)
+	}
+	if s.TTL <= 0 {
+		return nil
+	}
+
+	kv, err := ConfigToKV(*s.lastConfig)
+	if err != nil {
+		return err
+	}
+	pipe := s.client.Pipeline()
+	for key := range kv {
+		pipe.PExpire(ctx, key, s.TTL)
+	}
+	pipe.PExpire(ctx, s.sk("kop_last_update"), s.TTL)
+	commands, err := pipe.Exec(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to renew Redis configuration TTL")
+	}
+	for _, command := range commands {
+		if !command.(*redis.BoolCmd).Val() {
+			return s.store(*s.lastConfig)
+		}
 	}
 
 	return nil
@@ -218,7 +260,7 @@ func (s *RedisStore) swapKeys(setkey string) error {
 
 // k returns the actual config key path
 // e.g., traefik/http/routers/nginx@docker
-func (s RedisStore) k(sk, b string) string {
+func (s *RedisStore) k(sk, b string) string {
 	k := strings.ReplaceAll(fmt.Sprintf("traefik_%s", sk), "_", "/")
 	b = stripDocker(b)
 	return fmt.Sprintf("%s/%s", k, b)

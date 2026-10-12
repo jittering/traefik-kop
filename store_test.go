@@ -1,10 +1,13 @@
 package traefikkop
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/alicebob/miniredis/v2"
@@ -121,4 +124,115 @@ func Test_redisStoreRemovesStaleServerKeysOnUpdate(t *testing.T) {
 	stale, err := store.Get(staleKey)
 	require.NoError(t, err)
 	require.Empty(t, stale)
+}
+
+func newTTLTestStore(t *testing.T, ttl int) (*miniredis.Miniredis, *RedisStore, dynamic.Configuration) {
+	t.Helper()
+	server := miniredis.RunT(t)
+	store := NewRedisStore("ttl-test", server.Addr(), ttl, "", "", 0, nil, "", nil).(*RedisStore)
+	t.Cleanup(func() { require.NoError(t, store.client.Close()) })
+	var conf dynamic.Configuration
+	require.NoError(t, json.Unmarshal([]byte(NGINX_CONF_JSON), &conf))
+	return server, store, conf
+}
+
+func TestRedisTTLRenewal(t *testing.T) {
+	server, store, conf := newTTLTestStore(t, 300)
+	require.NoError(t, store.KeepConfAlive()) // No configuration yet.
+	require.Empty(t, server.Keys())
+	require.NoError(t, store.Store(conf))
+	kv, err := ConfigToKV(conf)
+	require.NoError(t, err)
+	require.NoError(t, server.Set("traefik/http/routers/other/rule", "other"))
+	server.SetTTL("traefik/http/routers/other/rule", 300*time.Second)
+
+	// Cross several original TTL boundaries without losing any published keys.
+	for i := 0; i < 10; i++ {
+		server.FastForward(100 * time.Second)
+		for key := range kv {
+			require.True(t, server.Exists(key), key)
+		}
+		require.NoError(t, store.KeepConfAlive())
+		for key := range kv {
+			require.Equal(t, 300*time.Second, server.TTL(key), key)
+		}
+		require.Equal(t, 300*time.Second, server.TTL(store.sk("kop_last_update")))
+	}
+	require.False(t, server.Exists("traefik/http/routers/other/rule"))
+
+	// With no further renewal, routes and sentinel still expire.
+	server.FastForward(300 * time.Second)
+	for key := range kv {
+		require.False(t, server.Exists(key), key)
+	}
+	require.False(t, server.Exists(store.sk("kop_last_update")))
+}
+
+func TestRedisKeepAliveRecovery(t *testing.T) {
+	for _, ttl := range []int{0, 300} {
+		t.Run(fmt.Sprint(ttl), func(t *testing.T) {
+			server, store, conf := newTTLTestStore(t, ttl)
+			require.NoError(t, store.Store(conf))
+			server.FlushAll()
+			require.NoError(t, store.KeepConfAlive())
+			key := "traefik/http/services/nginx/loadBalancer/servers/0/url"
+			require.True(t, server.Exists(key))
+			require.Equal(t, time.Duration(ttl)*time.Second, server.TTL(key))
+			if ttl > 0 {
+				server.Del(key) // Also recover partial key loss with a live sentinel.
+				require.NoError(t, store.KeepConfAlive())
+				require.True(t, server.Exists(key))
+			}
+			server.SetError("ERR unavailable")
+			require.Error(t, store.KeepConfAlive())
+		})
+	}
+}
+
+func TestRedisTTLTimerWithoutDockerPolling(t *testing.T) {
+	server, store, conf := newTTLTestStore(t, 1)
+	require.NoError(t, store.Store(conf))
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		keepStoreAlive(ctx, store, store.TTL/3)
+	}()
+	t.Cleanup(func() { cancel(); <-done })
+	key := "traefik/http/services/nginx/loadBalancer/servers/0/url"
+	for i := 0; i < 4; i++ {
+		server.FastForward(600 * time.Millisecond)
+		require.True(t, server.Exists(key))
+		require.Eventually(t, func() bool {
+			return server.TTL(key) == time.Second
+		}, time.Second, 10*time.Millisecond)
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("renewal timer did not stop")
+	}
+	server.FastForward(time.Second)
+	require.False(t, server.Exists(key))
+}
+
+func TestRedisTTLRenewalWithConfigurationChanges(t *testing.T) {
+	server, store, conf := newTTLTestStore(t, 300)
+	require.NoError(t, store.Store(conf))
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 20; i++ {
+			assert.NoError(t, store.KeepConfAlive())
+		}
+	}()
+	updated := conf.DeepCopy()
+	delete(updated.HTTP.Services, "nginx@docker")
+	delete(updated.HTTP.Routers, "nginx@docker")
+	require.NoError(t, store.Store(*updated))
+	wg.Wait()
+	require.NoError(t, store.KeepConfAlive())
+	require.False(t, server.Exists("traefik/http/services/nginx/loadBalancer/servers/0/url"))
 }

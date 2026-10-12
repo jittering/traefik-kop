@@ -139,6 +139,13 @@ func Start(config Config) {
 
 	ctx := context.Background()
 	routinesPool := safe.NewPool(ctx)
+	if config.RedisTTL > 0 {
+		// Renew independently of Docker polling, including when polling is disabled.
+		interval := time.Duration(config.RedisTTL) * time.Second / 3
+		routinesPool.GoCtx(func(ctx context.Context) {
+			keepStoreAlive(ctx, store, interval)
+		})
+	}
 
 	handleConfigChange := createConfigHandler(config, store, dp, dockerClient)
 
@@ -169,6 +176,21 @@ func Start(config Config) {
 	watcher.Start()
 
 	select {} // go forever
+}
+
+func keepStoreAlive(ctx context.Context, store TraefikStore, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if err := store.KeepConfAlive(); err != nil {
+				log.Warn().Err(err).Msg("Failed to renew Redis configuration")
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // keepContainer returns true if the container should be kept based on namespace filtering

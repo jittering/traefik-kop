@@ -42,6 +42,7 @@ them to a given `redis` instance. Simply configure your `traefik` node with a
     - [Namespace via label prefix](#namespace-via-label-prefix)
   - [Docker API](#docker-api)
     - [Traefik Docker Provider Config](#traefik-docker-provider-config)
+  - [Redis TTL](#redis-ttl)
   - [Redis Sentinel](#redis-sentinel)
   - [Redis TLS](#redis-tls)
   - [Releasing](#releasing)
@@ -395,6 +396,25 @@ services:
         docker:
           defaultRule: Host(`{{.Name}}.foo.example.com`)
 ```
+
+## Redis TTL
+
+Set `REDIS_TTL` (or `--redis-ttl`) to a positive number of seconds to expire
+published configuration when traefik-kop stops renewing it. The default, `0`,
+disables expiration.
+
+While running, traefik-kop renews its published keys every one-third of the TTL,
+even when the configuration is unchanged. This timer is independent of
+`KOP_POLL_INTERVAL`, so renewal also works when Docker polling is disabled (`0`)
+or the TTL is shorter than the poll interval. For example, `REDIS_TTL=300`
+renews keys every 100 seconds. Choose a TTL that leaves enough time for temporary
+Redis connectivity failures and scheduling delays; keys can still expire if
+renewal cannot reach Redis before the TTL elapses.
+
+Use a unique `KOP_HOSTNAME` for each instance. Configuration names in Redis are
+shared: if multiple instances publish the same router, service, or middleware
+keys, any of those instances can renew them. TTL is not per-node health checking
+for servers combined with `kop.merge-lbs`.
 
 ## Redis Sentinel
 
