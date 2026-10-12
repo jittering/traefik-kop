@@ -269,28 +269,23 @@ func createContainersJSON(composeConfig *compose.Config) map[string]container.In
 		}
 
 		// add port bindings
+		containerJSON.NetworkSettings.Ports = nat.PortMap{}
+		nextEphemeralPort := 12345
 		for _, port := range service.Ports {
-			portID := nat.Port(fmt.Sprintf("%d/%s", port.Published, port.Protocol))
-			if port.Published == 0 {
-				// Dynamic host ports still have a valid container port; newer
-				// Docker clients reject a synthetic 0/tcp port key.
-				portID = nat.Port(fmt.Sprintf("%d/%s", port.Target, port.Protocol))
-			}
+			portID := nat.Port(fmt.Sprintf("%d/%s", port.Target, port.Protocol))
 			containerJSON.HostConfig.PortBindings[portID] = []nat.PortBinding{
 				{
 					HostIP:   "",
 					HostPort: fmt.Sprintf("%d", port.Published),
 				},
 			}
-		}
-		containerJSON.NetworkSettings.Ports = containerJSON.HostConfig.PortBindings
-		for portID, mappings := range containerJSON.NetworkSettings.Ports {
-			for i, mapping := range mappings {
-				if mapping.HostPort == "0" {
-					// Emulating random port assignment for testing
-					containerJSON.NetworkSettings.Ports[portID][i].HostPort = "12345"
-				}
+			runtimeBinding := containerJSON.HostConfig.PortBindings[portID][0]
+			if port.Published == 0 {
+				// Emulate Docker allocating distinct ports without changing HostConfig.
+				runtimeBinding.HostPort = fmt.Sprint(nextEphemeralPort)
+				nextEphemeralPort++
 			}
+			containerJSON.NetworkSettings.Ports[portID] = []nat.PortBinding{runtimeBinding}
 		}
 		containersJSON[service.Name] = containerJSON
 	}

@@ -129,6 +129,31 @@ func isPortSet(container container.InspectResponse, svcType string, svcName stri
 	return container.Config.Labels[needle]
 }
 
+// getServicePortBinding resolves an internal port for the service's transport.
+// Runtime bindings contain the actual host port for ephemeral publications.
+func getServicePortBinding(container container.InspectResponse, svcType, port string) string {
+	protocol := "tcp"
+	if svcType == "udp" {
+		protocol = "udp"
+	}
+	key := nat.Port(port + "/" + protocol)
+	var maps []nat.PortMap
+	if container.NetworkSettings != nil {
+		maps = append(maps, container.NetworkSettings.Ports)
+	}
+	if container.HostConfig != nil {
+		maps = append(maps, container.HostConfig.PortBindings)
+	}
+	for _, bindings := range maps {
+		for _, binding := range bindings[key] {
+			if binding.HostPort != "" && binding.HostPort != "0" {
+				return binding.HostPort
+			}
+		}
+	}
+	return ""
+}
+
 // getPortBinding checks the docker container config for a port binding for the
 // service. Currently this will only work if a single port is mapped/exposed.
 //
@@ -151,7 +176,7 @@ func getPortBinding(container container.InspectResponse) (string, error) {
 		if len(v) > 1 {
 			return "", errors.Errorf("found more than one host-port binding for container '%s' (%s)", container.Name, portBindingString(container.HostConfig.PortBindings))
 		}
-		if v[0].HostPort != "" {
+		if len(v) > 0 && v[0].HostPort != "" && v[0].HostPort != "0" {
 			log.Debug().Msgf("found host-port binding %s", v[0].HostPort)
 			return v[0].HostPort, nil
 		}

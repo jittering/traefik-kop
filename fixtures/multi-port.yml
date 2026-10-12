@@ -1,0 +1,29 @@
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "127.0.0.1:1000:10/udp"
+      - "127.0.0.1::80"
+      - "127.0.0.1:2222:22"
+      - "127.0.0.1:9000:90/udp"
+      - "127.0.0.1::10/tcp"
+      - "127.0.0.1::91/udp"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx.rule=Host(`localhost`)"
+      - "traefik.http.services.nginx.loadbalancer.server.port=80"
+      - "traefik.tcp.routers.nginx-tcp.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.nginx-tcp.service=nginx-tcp"
+      - "traefik.tcp.services.nginx-tcp.loadbalancer.server.port=22"
+      - "traefik.tcp.routers.nginx-tcp-random.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.nginx-tcp-random.service=nginx-tcp-random"
+      - "traefik.tcp.services.nginx-tcp-random.loadbalancer.server.port=10"
+      - "traefik.udp.routers.nginx-udp.entrypoints=udp"
+      - "traefik.udp.routers.nginx-udp.service=nginx-udp"
+      - "traefik.udp.services.nginx-udp.loadbalancer.server.port=10"
+      - "traefik.udp.routers.nginx-udp-other.entrypoints=udp-other"
+      - "traefik.udp.routers.nginx-udp-other.service=nginx-udp-other"
+      - "traefik.udp.services.nginx-udp-other.loadbalancer.server.port=90"
+      - "traefik.udp.routers.nginx-udp-random.entrypoints=udp-random"
+      - "traefik.udp.routers.nginx-udp-random.service=nginx-udp-random"
+      - "traefik.udp.services.nginx-udp-random.loadbalancer.server.port=91"
