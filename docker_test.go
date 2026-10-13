@@ -6,9 +6,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/docker/docker/client"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/traefik/traefik/v3/pkg/config/label"
 )
 
 var app *fiber.App
@@ -59,6 +62,8 @@ func Test_helloWorld(t *testing.T) {
 	assert.Equal(t, "hello2", g(store, "traefik/http/routers/hello2/service"))
 	assert.NotEmpty(t, g(store, "traefik/http/routers/hello1/tls/certResolver"))
 	assert.NotEmpty(t, g(store, "traefik/http/routers/hello2/tls/certResolver"))
+	assert.Empty(t, g(store, "traefik/http/routers/hello1/entryPoints/0"))
+	assert.Empty(t, g(store, "traefik/http/routers/hello2/entryPoints/0"))
 
 	assertServiceIPs(t, store, []svc{
 		{"hello1", "http", "http://192.168.100.100:5555"},
@@ -128,6 +133,45 @@ func Test_routerTLSWithoutCertResolver(t *testing.T) {
 	store := processFile(t, "musicassistant-tls.yml")
 
 	assert.Equal(t, "true", g(store, "traefik/http/routers/musicassistant/tls"))
+}
+
+func Test_retryMiddleware(t *testing.T) {
+	store := processFile(t, "retry.yml")
+	assert.Equal(t, "retry", g(store, "traefik/http/routers/router-0/service"))
+	assert.Equal(t, "retry-mid-0", g(store, "traefik/http/routers/router-0/middlewares/0"))
+	assert.Equal(t, "5", g(store, "traefik/http/middlewares/retry-mid-0/retry/attempts"))
+	assert.Equal(t, "200ms", g(store, "traefik/http/middlewares/retry-mid-0/retry/initialInterval"))
+	assertServiceIPs(t, store, []svc{{"retry", "http", "http://192.168.100.100:5555"}})
+}
+
+func Test_retryStatusMiddleware(t *testing.T) {
+	redis := miniredis.RunT(t)
+	store := NewRedisStore("retry-test", redis.Addr(), 0, "", "", 0, nil, "", nil)
+	processFileWithConfig(t, store, nil, "retry-status.yml")
+	assert.Equal(t, "retry", g(store, "traefik/http/routers/router-0/service"))
+	assert.Equal(t, "retry-mid-0", g(store, "traefik/http/routers/router-0/middlewares/0"))
+	assert.Equal(t, "5", g(store, "traefik/http/middlewares/retry-mid-0/retry/attempts"))
+	assert.Equal(t, "200ms", g(store, "traefik/http/middlewares/retry-mid-0/retry/initialInterval"))
+	assert.Equal(t, "400", g(store, "traefik/http/middlewares/retry-mid-0/retry/status/0"))
+	assert.Equal(t, "500-599", g(store, "traefik/http/middlewares/retry-mid-0/retry/status/1"))
+	assertServiceIPs(t, store, []svc{{"retry", "http", "http://192.168.100.100:5555"}})
+	assert.Equal(t, "healthy", g(store, "traefik/http/routers/healthy/service"))
+	assertServiceIPs(t, store, []svc{{"healthy", "http", "http://192.168.100.100:5566"}})
+}
+
+func Test_retryStatusAcceptedWhenUnused(t *testing.T) {
+	// Issue #99 also occurred without a router referencing the middleware.
+	labels := map[string]string{
+		"traefik.http.routers.router-0.rule":                         "Host(`retry.local`)",
+		"traefik.http.middlewares.retry-mid-0.retry.attempts":        "5",
+		"traefik.http.middlewares.retry-mid-0.retry.initialInterval": "200ms",
+		"traefik.http.middlewares.retry-mid-0.retry.status":          "400,500-599",
+	}
+	conf, err := label.DecodeConfiguration(labels)
+	require.NoError(t, err)
+	require.NotNil(t, conf.HTTP.Middlewares["retry-mid-0"])
+	require.NotNil(t, conf.HTTP.Middlewares["retry-mid-0"].Retry)
+	assert.Equal(t, []string{"400", "500-599"}, conf.HTTP.Middlewares["retry-mid-0"].Retry.Status)
 }
 
 func g(s TraefikStore, k string) string {

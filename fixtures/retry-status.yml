@@ -1,0 +1,24 @@
+services:
+  retry:
+    image: traefik/whoami
+    ports:
+      - "5555:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.router-0.rule=Host(`retry.local`)"
+      - "traefik.http.routers.router-0.service=retry"
+      - "traefik.http.routers.router-0.middlewares=retry-mid-0"
+      - "traefik.http.services.retry.loadbalancer.server.port=5555"
+      - "traefik.http.middlewares.retry-mid-0.retry.attempts=5"
+      - "traefik.http.middlewares.retry-mid-0.retry.initialInterval=200ms"
+      # Issue #99: retry.status requires Traefik 3.7 or later.
+      - "traefik.http.middlewares.retry-mid-0.retry.status=400,500-599"
+  healthy:
+    image: traefik/whoami
+    ports:
+      - "5566:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.healthy.rule=Host(`healthy.local`)"
+      - "traefik.http.routers.healthy.service=healthy"
+      - "traefik.http.services.healthy.loadbalancer.server.port=5566"
