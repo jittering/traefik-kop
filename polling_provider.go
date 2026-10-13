@@ -56,7 +56,7 @@ func (p *PollingProvider) Provide(configurationChan chan<- dynamic.Message, pool
 				logger.Debug().Msg("tick")
 				p.startPollAttempt(ctx, configurationChan, logger)
 
-				// Try to push the last config if Redis restarted
+				// Renew cached configuration or restore it if Redis lost it.
 				err := p.store.KeepConfAlive()
 				if err != nil {
 					logger.Warn().Msgf("Failed to push cached config: %s", err)

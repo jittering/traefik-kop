@@ -28,10 +28,8 @@ type TraefikStore interface {
 
 func collectKeys(m interface{}) []string {
 	mk := reflect.ValueOf(m).MapKeys()
-	// set := mapset.NewSet()
 	set := make([]string, len(mk))
 	for i := 0; i < len(mk); i++ {
-		// set.Add(mk[i].String())
 		set[i] = mk[i].String()
 	}
 	return set
@@ -190,17 +188,6 @@ func (s *RedisStore) store(conf dynamic.Configuration) error {
 	return nil
 }
 
-// NeedsUpdate checks if Redis needs a full configuration refresh
-// by checking for the sentinel key's existence
-func (s *RedisStore) NeedsUpdate() bool {
-	// Check if sentinel key exists
-	exists, err := s.client.Exists(context.Background(), s.sk("kop_last_update")).Result()
-	if err != nil {
-		log.Warn().Msgf("Failed to check Redis status: %s", err)
-	}
-	return exists == 0
-}
-
 // Renew published keys before they expire, or restore the configuration if Redis
 // lost it. Only touch keys in this instance's last published configuration.
 func (s *RedisStore) KeepConfAlive() error {
@@ -228,16 +215,16 @@ func (s *RedisStore) KeepConfAlive() error {
 		return err
 	}
 	pipe := s.client.Pipeline()
+	commands := make([]*redis.BoolCmd, 0, len(kv)+1)
 	for key := range kv {
-		pipe.PExpire(ctx, key, s.TTL)
+		commands = append(commands, pipe.PExpire(ctx, key, s.TTL))
 	}
-	pipe.PExpire(ctx, s.sk("kop_last_update"), s.TTL)
-	commands, err := pipe.Exec(ctx)
-	if err != nil {
+	commands = append(commands, pipe.PExpire(ctx, s.sk("kop_last_update"), s.TTL))
+	if _, err := pipe.Exec(ctx); err != nil {
 		return errors.Wrap(err, "failed to renew Redis configuration TTL")
 	}
 	for _, command := range commands {
-		if !command.(*redis.BoolCmd).Val() {
+		if !command.Val() {
 			return s.store(*s.lastConfig)
 		}
 	}
