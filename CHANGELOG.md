@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.21.0
+
+### New Features
+
+- Native TLS and mutual TLS support for Redis, including Sentinel ([#105, thanks @techfixpros](https://github.com/jittering/traefik-kop/pull/105))
+
+### Fixes
+
+- Hide unexposed containers from Docker listings and events when `exposedByDefault` is disabled, avoiding unnecessary inspections and log noise ([#100, thanks @Kuppit](https://github.com/jittering/traefik-kop/pull/100))
+- Renew Redis keys before their TTL expires independently of Docker polling, and restore cached configuration when keys are lost ([#106](https://github.com/jittering/traefik-kop/pull/106))
+- Resolve published host ports by internal port and protocol, including ephemeral ports and containers exposing multiple ports ([#107](https://github.com/jittering/traefik-kop/pull/107))
+- Support `retry.status` middleware configuration ([#109](https://github.com/jittering/traefik-kop/pull/109))
+- Include system CA certificates in the Docker image for TLS certificate verification
+- Lower missing TLS cert resolver messages from warning to debug (resolves [#103](https://github.com/jittering/traefik-kop/issues/103))
+
+### Other
+
+- Upgrade the embedded Traefik library to v3.7.14 and Go build requirements to 1.26 ([#109](https://github.com/jittering/traefik-kop/pull/109))
+- Fix Docker cleanup and update GitHub Actions versions ([#108](https://github.com/jittering/traefik-kop/pull/108))
+
 ## v0.20.1
 
 ### Fixes
