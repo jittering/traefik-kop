@@ -3,6 +3,7 @@ package traefikkop
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -349,7 +350,7 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 					server.URL = fmt.Sprintf("%s://%s", scheme, ip)
 					port := getContainerPort(dc, conf, "http", svcName, server.Port)
 					if port != "" {
-						server.URL += ":" + server.Port
+						server.URL += ":" + port
 					}
 				}
 			}
@@ -374,6 +375,9 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 				ip = getContainerNetworkIP(dc, conf, "tcp", svcName, ip)
 
 				server := &svc.LoadBalancer.Servers[i]
+				if server.Port == "" {
+					_, server.Port, _ = net.SplitHostPort(server.Address)
+				}
 				server.Port = getContainerPort(dc, conf, "tcp", svcName, server.Port)
 				log.Debug().Msgf("using ip '%s' and port '%s' for %s", ip, server.Port, svcName)
 				server.Address = ip
@@ -394,6 +398,9 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 				ip = getContainerNetworkIP(dc, conf, "udp", svcName, ip)
 
 				server := &svc.LoadBalancer.Servers[i]
+				if server.Port == "" {
+					_, server.Port, _ = net.SplitHostPort(server.Address)
+				}
 				server.Port = getContainerPort(dc, conf, "udp", svcName, server.Port)
 				log.Debug().Msgf("using ip '%s' and port '%s' for %s", ip, server.Port, svcName)
 				server.Address = ip
@@ -441,7 +448,7 @@ func getRouterOfService(conf *dynamic.Configuration, svcName string, svcType str
 	return name
 }
 
-// Get host-port binding from container, if not explicitly set via labels
+// Resolve a service's internal port to its published host port when possible.
 //
 // The `port` param is the value which was either set via label or inferred by
 // traefik during its config parsing (possibly an container-internal port). The
@@ -454,7 +461,15 @@ func getContainerPort(dc *dockerCache, conf *dynamic.Configuration, svcType stri
 		log.Warn().Msgf("failed to find host-port: %s", err)
 		return port
 	}
-	if p := isPortSet(container, svcType, svcName); p != "" {
+	explicitPort := isPortSet(container, svcType, svcName)
+	if explicitPort != "" {
+		port = explicitPort
+	}
+	if p := getServicePortBinding(container, svcType, port); p != "" {
+		log.Debug().Msgf("resolved %s internal port %s to host port %s", svcType, port, p)
+		return p
+	}
+	if p := explicitPort; p != "" {
 		log.Debug().Msgf("using explicitly set port %s for %s", p, svcName)
 		return p
 	}

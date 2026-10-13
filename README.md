@@ -240,27 +240,34 @@ services:
       - 8088:80
 ```
 
-`8088` would automatically be used as the service endpoint's port in traefik. If
-you have more than one port or are using *host networking*, you will need to
-explicitly set the port binding via service label, like so:
+`8088` would automatically be used as the service endpoint's port in traefik.
+With multiple published ports, select the internal port using the standard
+Traefik service label. Traefik-kop matches both the internal port and protocol
+(TCP for HTTP/TCP services, UDP for UDP services) to find its host port:
 
 ```yaml
 services:
   nginx:
     image: "nginx:alpine"
-    network_mode: host
     ports:
       - 8088:80
-      - 8888:81
+      - "127.0.0.1::10/udp"
     labels:
       # (note: other labels snipped for brevity)
-      - "traefik.http.services.nginx.loadbalancer.server.port=8088"
+      - "traefik.http.services.nginx.loadbalancer.server.port=80"
+      - "traefik.udp.services.nginx-udp.loadbalancer.server.port=10"
 ```
 
-__NOTE:__ unlike the standard traefik-docker usage, we need to expose the
-service port on the host and tell traefik to bind to *that* port (8088 in the
-example above) in the load balancer config, not the internal port (80). This is
-so that traefik can reach it over the network.
+The HTTP endpoint uses host port `8088`. The UDP endpoint uses the ephemeral
+host port assigned by Docker, read from the container's runtime network settings.
+The same internal port number can be published separately for TCP and UDP.
+No additional labels or configuration are needed.
+
+If a labeled port has no matching internal-port publication, its value is used
+unchanged. This preserves explicit host-port labels and supports *host networking*.
+If a number matches an internal port, its published host port takes precedence.
+Published ports must be reachable from Traefik; a loopback-only binding is only
+reachable on that host.
 
 ## Namespaces
 

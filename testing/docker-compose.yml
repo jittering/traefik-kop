@@ -173,6 +173,30 @@ services:
       # - "traefik.http.services.ephemeral.loadbalancer.server.scheme=http"
       # - "traefik.http.services.ephemeral.loadbalancer.server.port=8099"
 
+  # Port-discovery fixture: nginx only serves HTTP, but all publications should
+  # resolve to their respective host ports in Redis, including ephemeral UDP.
+  ephemeral_multi:
+    image: "nginx:alpine"
+    restart: "no"
+    ports:
+      - "127.0.0.1::80"
+      - "127.0.0.1:2222:22"
+      - "127.0.0.1::10/udp"
+      - "127.0.0.1:9000:90/udp"
+      - "127.0.0.1::10/tcp"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ephemeral-multi.rule=Host(`ephemeral-multi.local`)"
+      - "traefik.http.services.ephemeral-multi.loadbalancer.server.port=80"
+      - "traefik.tcp.routers.ephemeral-multi-ssh.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.ephemeral-multi-ssh.service=ephemeral-multi-ssh"
+      - "traefik.tcp.services.ephemeral-multi-ssh.loadbalancer.server.port=22"
+      - "traefik.tcp.routers.ephemeral-multi-tcp.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.ephemeral-multi-tcp.service=ephemeral-multi-tcp"
+      - "traefik.tcp.services.ephemeral-multi-tcp.loadbalancer.server.port=10"
+      - "traefik.udp.routers.ephemeral-multi-udp.entrypoints=udp"
+      - "traefik.udp.services.ephemeral-multi-udp.loadbalancer.server.port=10"
+
   nginx_prefix:
     image: "nginx:alpine"
     restart: unless-stopped
