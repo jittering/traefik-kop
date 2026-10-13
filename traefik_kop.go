@@ -363,7 +363,7 @@ func replaceIPs(dc *dockerCache, conf *dynamic.Configuration, ip string) {
 			if conf.HTTP.Routers != nil {
 				for routerName, router := range conf.HTTP.Routers {
 					if router.Service+"@docker" == svcName && (router.TLS == nil || strings.TrimSpace(router.TLS.CertResolver) == "") {
-						log.Warn().Msgf("router %s has no TLS cert resolver", routerName)
+						log.Debug().Msgf("router %s has no TLS cert resolver", routerName)
 					}
 				}
 			}
