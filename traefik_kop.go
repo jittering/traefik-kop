@@ -19,7 +19,6 @@ import (
 	"github.com/traefik/traefik/v3/pkg/provider/aggregator"
 	"github.com/traefik/traefik/v3/pkg/provider/docker"
 	"github.com/traefik/traefik/v3/pkg/safe"
-	"github.com/traefik/traefik/v3/pkg/server"
 	"golang.org/x/exp/slices"
 )
 
@@ -166,12 +165,7 @@ func Start(config Config) {
 		panic(err)
 	}
 
-	watcher := server.NewConfigurationWatcher(
-		routinesPool,
-		multiProvider,
-		[]string{},
-		"docker",
-	)
+	watcher := newConfigurationWatcher(routinesPool, multiProvider)
 	watcher.AddListener(handleConfigChange)
 	watcher.Start()
 

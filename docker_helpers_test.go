@@ -26,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/traefik/traefik/v3/pkg/config/dynamic"
 	"github.com/traefik/traefik/v3/pkg/safe"
-	"github.com/traefik/traefik/v3/pkg/server"
 )
 
 type testStore struct {
@@ -272,6 +271,11 @@ func createContainersJSON(composeConfig *compose.Config) map[string]container.In
 		// add port bindings
 		for _, port := range service.Ports {
 			portID := nat.Port(fmt.Sprintf("%d/%s", port.Published, port.Protocol))
+			if port.Published == 0 {
+				// Dynamic host ports still have a valid container port; newer
+				// Docker clients reject a synthetic 0/tcp port key.
+				portID = nat.Port(fmt.Sprintf("%d/%s", port.Target, port.Protocol))
+			}
 			containerJSON.HostConfig.PortBindings[portID] = []nat.PortBinding{
 				{
 					HostIP:   "",
@@ -339,12 +343,7 @@ func processFileWithConfig(t *testing.T, store TraefikStore, config *Config, fil
 	handleConfigChange := createConfigHandler(*config, store, dp, dc)
 
 	routinesPool := safe.NewPool(context.Background())
-	watcher := server.NewConfigurationWatcher(
-		routinesPool,
-		dp,
-		[]string{},
-		"docker",
-	)
+	watcher := newConfigurationWatcher(routinesPool, dp)
 	watcher.AddListener(handleConfigChange)
 
 	// ensure we get exactly one change
@@ -356,6 +355,7 @@ func processFileWithConfig(t *testing.T, store TraefikStore, config *Config, fil
 
 	watcher.Start()
 	defer watcher.Stop()
+	defer routinesPool.Stop()
 
 	wgChanges.Wait()
 

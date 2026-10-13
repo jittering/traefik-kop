@@ -1,0 +1,13 @@
+services:
+  retry:
+    image: traefik/whoami
+    ports:
+      - "5555:80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.router-0.rule=Host(`retry.local`)"
+      - "traefik.http.routers.router-0.service=retry"
+      - "traefik.http.routers.router-0.middlewares=retry-mid-0"
+      - "traefik.http.services.retry.loadbalancer.server.port=5555"
+      - "traefik.http.middlewares.retry-mid-0.retry.attempts=5"
+      - "traefik.http.middlewares.retry-mid-0.retry.initialInterval=200ms"
