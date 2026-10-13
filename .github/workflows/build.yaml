@@ -1,0 +1,140 @@
+name: build
+
+on:
+  workflow_call:
+    inputs:
+      fetch-depth:
+        description: Checkout history depth
+        required: false
+        type: number
+        default: 1
+      release:
+        description: Create a tagged GoReleaser release
+        required: false
+        type: boolean
+        default: false
+      push-docker-images:
+        description: Push snapshot Docker images on the main branch
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    name: Build
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: ${{ inputs.fetch-depth }}
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ~1.25
+          cache: false
+
+      - name: Remote cache
+        uses: actions/cache@v6
+        if: ${{ runner.environment == 'github-hosted' }}
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+      # repo disappeared
+      # - name: Local cache
+      #   uses: actions-self-hosted/cache@v4
+      #   if: ${{ runner.environment == 'self-hosted' }}
+      #   with:
+      #     cache-dir: /local-cache
+      #     path: |
+      #       ~/.cache/go-build
+      #       ~/go/pkg/mod
+      #     key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+      - name: Set up GoReleaser
+        if: ${{ !inputs.release }}
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: latest
+          install-only: true
+
+      - name: Test
+        run: |
+          set -eo pipefail
+          go mod tidy
+          go mod download
+          go test ./...
+
+      - name: Run GoReleaser
+        if: ${{ inputs.release }}
+        uses: goreleaser/goreleaser-action@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          version: latest
+          args: release --clean
+
+      - name: Build
+        if: ${{ !inputs.release }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          goreleaser release --clean --snapshot --parallelism 2
+
+      - name: Push docker images
+        if: ${{ inputs.push-docker-images && github.ref == 'refs/heads/main' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Manually push docker images
+          docker images --format '{{ .Repository }}:{{ .Tag }}' \
+            | grep traefik-kop \
+            | grep -v none \
+            | xargs -n 1 docker push
+
+      - name: Cleanup local docker images
+        if: ${{ runner.environment == 'self-hosted' }}
+        run: |
+          # traefik-kop images
+          docker images --format "{{ .Repository }}\t{{ .Tag }}\t{{ .ID }}" \
+            | grep ghcr.io/jittering/traefik-kop \
+            | awk '{print $3}' \
+            | sort | uniq \
+            | xargs -r docker rmi -f
+
+          # runner images
+          docker images --format "{{ .Repository }}\t{{ .Tag }}\t{{ .ID }}" \
+            | grep myoung34/github-runner \
+            | grep none \
+            | awk '{print $3}' \
+            | sort | uniq \
+            | xargs -r docker rmi -f
+
+      - name: Cleanup old images from registry
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          tags: "*-next-*"
+          older-than: "30 days"
+          delete-untagged: true
