@@ -16,112 +16,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   build_docker:
     name: Build Docker
-    runs-on: self-hosted
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          # so we get proper snapshot version info
-          fetch-depth: 0
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: ~1.25
-          cache: false
-
-      - name: Remote cache
-        uses: actions/cache@v4
-        if: ${{ runner.environment == 'github-hosted' }}
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-
-      # repo disappeared
-      # - name: Local cache
-      #   uses: actions-self-hosted/cache@v4
-      #   if: ${{ runner.environment == 'self-hosted' }}
-      #   with:
-      #     cache-dir: /local-cache
-      #     path: |
-      #       ~/.cache/go-build
-      #       ~/go/pkg/mod
-      #     key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-
-      - name: Set up GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          version: latest
-          install-only: true
-
-      - name: Test
-        run: |
-          set -eo pipefail
-          go mod tidy
-          go mod download
-          go test ./...
-
-      - name: Build
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -eo pipefail
-          goreleaser release --clean --snapshot --parallelism 2
-
-      - name: Push docker images
-        if: ${{ github.ref == 'refs/heads/main' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Manually push docker images
-          docker images --format '{{ .Repository }}:{{ .Tag }}' \
-            | grep traefik-kop \
-            | grep -v none \
-            | xargs -n 1 docker push
-
-      - name: Cleanup local docker images
-        if: ${{ runner.environment == 'self-hosted' }}
-        run: |
-          # traefik-kop images
-          docker images \
-            | grep ghcr.io/jittering/traefik-kop \
-            | awk '{print $3}' \
-            | sort | uniq \
-            | xargs -r docker rmi -f
-
-          # runner images
-          docker images \
-            | grep myoung34/github-runner \
-            | grep none \
-            | awk '{print $3}' \
-            | sort | uniq \
-            | xargs -r docker rmi -f
-
-      - name: Cleanup old images from registry
-        uses: dataaxiom/ghcr-cleanup-action@v1
-        with:
-          tags: "*-next-*"
-          older-than: "30 days"
-          delete-untagged: true
+    uses: ./.github/workflows/build.yaml
+    with:
+      fetch-depth: 0
+      push-docker-images: true
+    secrets: inherit
