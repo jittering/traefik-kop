@@ -166,8 +166,16 @@ func Start(config Config) {
 		panic(err)
 	}
 
+	// Re-run the handler on every poll tick: Traefik skips unchanged configurations,
+	// but the host port of a restarted container can change while the configuration
+	// (container IP + container port) does not. See configReapplier.
+	reapplier := newConfigReapplier(handleConfigChange)
+	routinesPool.GoCtx(func(ctx context.Context) {
+		reapplier.Run(ctx, time.Second*time.Duration(config.PollInterval))
+	})
+
 	watcher := newConfigurationWatcher(routinesPool, multiProvider)
-	watcher.AddListener(handleConfigChange)
+	watcher.AddListener(reapplier.Handle)
 	watcher.Start()
 
 	select {} // go forever
